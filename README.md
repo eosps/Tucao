@@ -7,14 +7,14 @@
 ![](http://www.tucao.tv/skin2013/banner.jpg)
 
 ## 特色
-- 首页六大模块，推荐、新番、影剧、游戏、动画、频道
+- 首页四大模块，推荐、新番、影剧、综合
 - 全站排行榜，支持每日/每周排序
 - 放映时间表，可以查看周一到周日新番的更新情况
 - 频道列表，支持按照发布时间/播放量/弹幕排序
 - 视频搜索，支持分频道搜索
 - 视频查看，使用IjkPlayer播放视频，DanmakuFlameMaster播放弹幕，自动拼接多段视频（使用concat协议）
 - 视频离线缓存，支持缓存弹幕
-- 增量更新（[Google File By File Patch](https://github.com/andrewhayden/archive-patcher)）
+
 
 ## 截图
 <a href="art/1.gif"><img src="art/1.gif" width="30%"/></a>
@@ -43,12 +43,7 @@
 <a href="art/18.png"><img src="art/18.png" width="30%"/></a>
 <a href="art/19.png"><img src="art/19.png" width="30%"/></a>
 
-## 待做列表
-- [ ] 同步收藏（接口不全）
-- [ ] 发私信（接口不全）
-- [ ] 查看私信（接口不全）
-- [ ] 准备播放时会弹回主界面（无法重现）
-- [ ] 修复播放时跳回开头的问题（无法100%重现，原因不明）
+
 
 ## 常见问题
 - [常见问题](https://github.com/blackbbc/Tucao/blob/master/FAQ.md)
@@ -57,7 +52,7 @@
 - [更新历史](https://github.com/blackbbc/Tucao/blob/master/changelog.md)
 
 ## 开发指南
-Android Studio 版本: [3.0](https://developer.android.com/studio/preview/index.html)
+Android Studio 版本: [panda 2](https://developer.android.com/studio/preview/index.html)
 
 由于项目中使用了[子模块](https://git-scm.com/book/zh/v1/Git-工具-子模块)，请务必使用以下命令克隆项目
 ```
