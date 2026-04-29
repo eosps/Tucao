@@ -7,7 +7,7 @@ import me.sweetll.tucao.R
 import me.sweetll.tucao.model.other.User
 
 object DataBindingAdapters {
-    @BindingAdapter("app:avatar")
+    @BindingAdapter("avatar")
     @JvmStatic
     fun loadAvatar(imageView: ImageView, url: String?) {
         url?.let {
@@ -15,7 +15,7 @@ object DataBindingAdapters {
         }
     }
 
-    @BindingAdapter("app:my_avatar")
+    @BindingAdapter("my_avatar")
     @JvmStatic
     fun loadMyAvatar(imageView: ImageView, url: String?) {
         url?.let {
@@ -23,7 +23,7 @@ object DataBindingAdapters {
         }
     }
 
-    @BindingAdapter("app:imageData")
+    @BindingAdapter("imageData")
     @JvmStatic
     fun loadImage(imageView: ImageView, bytes: ByteArray?) {
         bytes?.let {
@@ -31,7 +31,7 @@ object DataBindingAdapters {
         }
     }
 
-    @BindingAdapter("app:error")
+    @BindingAdapter("error")
     @JvmStatic
     fun setError(textInputLayout: TextInputLayout, error: String?) {
         textInputLayout.error = error

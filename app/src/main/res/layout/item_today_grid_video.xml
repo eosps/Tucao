@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp">
+
+    <ImageView
+        android:id="@+id/img_thumb"
+        android:layout_width="match_parent"
+        android:layout_height="90dp"
+        android:scaleType="centerCrop"
+        android:background="@color/light_background"
+        tools:src="@drawable/bg_showtime" />
+
+    <TextView
+        android:id="@+id/text_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textSize="12sp"
+        android:textColor="@color/primary_text"
+        tools:text="异世界悠闲农家2" />
+
+</LinearLayout>

@@ -294,7 +294,7 @@ public class CustomBottomSheetBehavior<V extends View> extends CoordinatorLayout
                         !parent.isPointInChildBounds(child, initialX, mInitialY);
                 break;
         }
-        if (!mIgnoreEvents && mViewDragHelper.shouldInterceptTouchEvent(event)) {
+        if (!mIgnoreEvents && mViewDragHelper != null && mViewDragHelper.shouldInterceptTouchEvent(event)) {
             return true;
         }
         // We have to handle cases that the ViewDragHelper does not capture the bottom sheet because
@@ -304,7 +304,7 @@ public class CustomBottomSheetBehavior<V extends View> extends CoordinatorLayout
         return action == MotionEvent.ACTION_MOVE && scroll != null &&
                 !mIgnoreEvents && mState != STATE_DRAGGING &&
                 !parent.isPointInChildBounds(scroll, (int) event.getX(), (int) event.getY()) &&
-                Math.abs(mInitialY - event.getY()) > mViewDragHelper.getTouchSlop();
+                Math.abs(mInitialY - event.getY()) > (mViewDragHelper != null ? mViewDragHelper.getTouchSlop() : 0);
     }
 
     @Override

@@ -7,7 +7,9 @@ import me.sweetll.tucao.extension.getSharedPreference
 
 class User() {
 
-    var email: String = ""
+    var username: String = ""
+        set(value) { field = value;save() }
+    var uid: String = ""
         set(value) { field = value;save() }
     var name: String = ""
         set(value) { field = value;save() }
@@ -20,10 +22,11 @@ class User() {
     var message: Int = 0
         set(value) { field = value;save()}
 
-    fun isValid() = email.isNotEmpty()
+    fun isValid() = username.isNotEmpty()
 
     fun invalidate() {
-        email = ""
+        username = ""
+        uid = ""
         name = ""
         avatar = ""
         level = 0

@@ -46,7 +46,7 @@ class VideoAdapter(data: MutableList<Video>?): BaseQuickAdapter<Video, BaseViewH
                     .setInterpolator(DecelerateInterpolator())
                     .setDuration(300)
                     .setListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator?) {
+                        override fun onAnimationEnd(animation: Animator) {
                             animationsLocked = true
                         }
                     })

@@ -1,14 +1,10 @@
 package me.sweetll.tucao.di.service
 
 import io.reactivex.Observable
-import me.sweetll.tucao.business.video.model.Clicli
 import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.video.model.ReplyResponse
 import me.sweetll.tucao.model.json.BaseResponse
 import me.sweetll.tucao.model.json.ListResponse
-import me.sweetll.tucao.model.json.Version
-import okhttp3.RequestBody
-import okhttp3.ResponseBody
 import retrofit2.http.*
 
 interface JsonApiService {
@@ -34,12 +30,7 @@ interface JsonApiService {
 
     @GET
     @Headers("user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36")
-    fun clicli(@Url url: String): Observable<Clicli>
-
-    @GET(ApiConfig.UPDATE_API_URL)
-    fun update(@Query("appKey") appKey: String,
-               @Query("appSecret") appSecret: String,
-               @Query("versionCode") versionCode: Int): Observable<Version>
+    fun clicli(@Url url: String): Observable<me.sweetll.tucao.business.video.model.Clicli>
 
     @GET(ApiConfig.REPLY_API_URL)
     fun reply(@Query("commentid") commentId: String,

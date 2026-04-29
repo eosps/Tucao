@@ -38,4 +38,11 @@
         <attr name="bsb_bubble_text_color" format="color|reference"/> <!--text color of bubble-progress, default: #ffffffff-->
         <attr name="bsb_anim_duration" format="integer"/> <!--duration of animation, default: 200ms-->
     </declare-styleable>
+
+    <!-- CustomBottomSheetBehavior 所需的 styleable -->
+    <declare-styleable name="BottomSheetBehavior_Layout">
+        <attr name="behavior_peekHeight" format="dimension|reference"/>
+        <attr name="behavior_hideable" format="boolean"/>
+        <attr name="behavior_skipCollapsed" format="boolean"/>
+    </declare-styleable>
 </resources>

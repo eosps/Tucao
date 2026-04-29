@@ -62,8 +62,8 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
 
             private val vmRef = WeakReference<RegisterViewModel>(vm)
 
-            override fun handleMessage(msg: Message?) {
-                if (msg?.what == MESSAGE_TRANSITION) {
+            override fun handleMessage(msg: Message) {
+                if (msg.what == MESSAGE_TRANSITION) {
                     vmRef.get()?.let {
                         it.finishDelay.value = true
                     }
@@ -236,7 +236,7 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
                 }
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
-                    user.email = email.get()
+                    user.username = email.get()
                     user.name = nickname.get()
                     user.avatar = ""
                     user.level = 1

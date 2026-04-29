@@ -58,7 +58,7 @@ class CommentAdapter(data: MutableList<Comment>?) : BaseQuickAdapter<Comment, Ba
                     .setInterpolator(DecelerateInterpolator(2f))
                     .setDuration(300)
                     .setListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator?) {
+                        override fun onAnimationEnd(animation: Animator) {
                             animationsLocked = true
                         }
                     })

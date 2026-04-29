@@ -17,7 +17,8 @@ class GameViewModel(val fragment: GameFragment): BaseViewModel() {
 
     fun loadData() {
         fragment.setRefreshing(true)
-        rawApiService.list(21)
+        // 综合页面 tid=19，包含动画、音乐、游戏等子频道
+        rawApiService.list(19)
                 .bindToLifecycle(fragment)
                 .sanitizeHtml {
                     val recommends = parseRecommends(this)
@@ -36,16 +37,13 @@ class GameViewModel(val fragment: GameFragment): BaseViewModel() {
     }
 
     fun parseRecommends(doc: Document): List<Pair<Channel, List<Video>>> {
+        // 和影剧一样，综合页面的子频道数据在 #loop_num 容器中
         val listParentNode = doc.getElementById("loop_num")
-        val recommends = parseChannelList(listParentNode).toMutableList()
-
-        //解析今日推荐
-//        val channel = Channel(0, "今日推荐")
-//        val list8 = doc.getElementsByClass("list_hot").first()
-//        val videos = parseListVideo(list8)
-//        recommends.add(0, channel to videos)
-
-        return recommends
+        return if (listParentNode != null) {
+            parseChannelList(listParentNode)
+        } else {
+            emptyList()
+        }
     }
 
     fun onClickChannel(view: View) {

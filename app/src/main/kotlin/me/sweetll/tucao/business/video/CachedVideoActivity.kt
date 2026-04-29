@@ -56,7 +56,7 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_cached_video)
-        video = intent.getParcelableExtra(ARG_VIDEO)
+        video = intent.getParcelableExtra(ARG_VIDEO)!!
         selectedPart = video.parts[0]
 
         HistoryHelpers.loadPlayHistory()

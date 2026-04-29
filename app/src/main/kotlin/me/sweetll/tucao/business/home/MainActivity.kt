@@ -33,8 +33,10 @@ import com.trello.rxlifecycle2.kotlin.bindToLifecycle
 import dagger.android.AndroidInjection
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.Disposable
 import io.reactivex.processors.BehaviorProcessor
 import io.reactivex.schedulers.Schedulers
+import org.jsoup.Jsoup
 import me.sweetll.tucao.AppApplication
 import me.sweetll.tucao.BuildConfig
 import me.sweetll.tucao.R
@@ -103,45 +105,14 @@ class MainActivity : BaseActivity() {
 
     lateinit var messageCounter: TextView
 
-    lateinit var updateDialog: DialogPlus
-
     lateinit var logoutDialog: DialogPlus
 
-    lateinit var downloadUrl: String
-
-    lateinit var apkFile: File
+    // 消息数轮询
+    private var messagePollDisposable: Disposable? = null
 
     override fun getToolbar(): Toolbar = binding.toolbar
 
     fun initDialog() {
-        val updateView = LayoutInflater.from(this).inflate(R.layout.dialog_update, null)
-        val descriptionText = updateView.findViewById<TextView>(R.id.text_description)
-        descriptionText.movementMethod = ScrollingMovementMethod()
-        updateDialog = DialogPlus.newDialog(this)
-                .setContentHolder(ViewHolder(updateView))
-                .setGravity(Gravity.CENTER)
-                .setContentWidth(ViewGroup.LayoutParams.WRAP_CONTENT)
-                .setContentHeight(ViewGroup.LayoutParams.WRAP_CONTENT)
-                .setContentBackgroundResource(R.drawable.bg_round_white_rectangle)
-                .setOverlayBackgroundResource(R.color.mask)
-                .setOnClickListener {
-                    dialog, view ->
-                    when (view.id) {
-                        R.id.btn_cancel -> dialog.dismiss()
-                        R.id.btn_full_update -> {
-                            // 完整更新
-                            fullUpdate()
-                            dialog.dismiss()
-                        }
-                        R.id.btn_save_update -> {
-                            // 省流量更新
-                            // saveUpdate()
-                            dialog.dismiss()
-                        }
-                    }
-                }
-                .create()
-
         val logoutView = LayoutInflater.from(this).inflate(R.layout.dialog_logout, null)
         logoutDialog = DialogPlus.newDialog(this)
                 .setContentHolder(ViewHolder(logoutView))
@@ -211,8 +182,6 @@ class MainActivity : BaseActivity() {
 //                logoutDialog.show()
             }
         }
-
-//        checkUpdate(true)
     }
 
     override fun initToolbar() {
@@ -235,12 +204,8 @@ class MainActivity : BaseActivity() {
                 R.id.nav_message -> {
                     MessageListActivity.intentTo(this)
                 }
-                R.id.nav_upgrade -> {
-                    "检查更新中...".toast()
-                    checkUpdate(false)
-                }
                 R.id.nav_setting -> {
-                    "没什么好设置的啦( ﾟ∀ﾟ)".toast()
+                    me.sweetll.tucao.business.settings.SettingsActivity.intentTo(this)
                 }
                 R.id.nav_about -> {
                     AboutActivity.intentTo(this)
@@ -307,8 +272,19 @@ class MainActivity : BaseActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        startMessagePolling()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopMessagePolling()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        stopMessagePolling()
         EventBus.getDefault().unregister(this)
     }
 
@@ -338,230 +314,42 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    fun fullUpdate() {
-        if (apkFile.exists()) {
-            installFromFile(apkFile)
-            return
-        }
-        val processor = BehaviorProcessor.create<DownloadEvent>()
-        processor.onNext(DownloadEvent(DownloadStatus.READY, 0, 0))
-        rawApiService.download(downloadUrl)
+    // 每5分钟轮询一次未读消息数
+    private fun startMessagePolling() {
+        if (!user.isValid()) return
+        stopMessagePolling()
+        // 立即查一次，然后每5分钟查一次
+        messagePollDisposable = Observable.interval(0, 5, TimeUnit.MINUTES)
                 .subscribeOn(Schedulers.io())
-                .flatMap {
-                    response ->
-                    if (response.code() == 200) {
-                        Observable.just(response.body())
-                    } else {
-                        Observable.error(Error(response.message()))
-                    }
-                }
-                .subscribe({
-                    body ->
-                    processor.onNext(DownloadEvent(DownloadStatus.STARTED, 0, 0))
-
-                    var count = 0
-                    var downloadLength = 0L
-                    val contentLength = body!!.contentLength()
-                    val data = ByteArray(1024 * 8)
-
-                    try {
-                        val inputStream = BufferedInputStream(body.byteStream())
-                        val outputStream = BufferedOutputStream(apkFile.outputStream())
-
-                        count = inputStream.read(data)
-                        while (count != -1) {
-                            outputStream.write(data, 0, count)
-                            downloadLength += count
-                            processor.onNext(DownloadEvent(DownloadStatus.STARTED, downloadLength, contentLength))
-                            count = inputStream.read(data)
-                        }
-                        outputStream.flush()
-
-                        processor.onNext(DownloadEvent(DownloadStatus.COMPLETED, downloadLength, contentLength))
-
-                        inputStream.close()
-                        outputStream.close()
-
-                        installFromFile(apkFile)
-                    } catch (error: Exception) {
-                        error.printStackTrace()
-                        // TODO: 下载失败
-                    }
-                }, {
-                    error ->
-                    error.printStackTrace()
-                    // TODO: 下载失败
-                })
-
-        val builder = NotificationCompat.Builder(this, PRIMARY_CHANNEL)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-
-        processor.sample(500, TimeUnit.MILLISECONDS)
-                .subscribe {
-                    event ->
-                    // 更新进度
-                    when (event.status) {
-                        DownloadStatus.READY -> {
-                            builder.setContentTitle("新版本")
-                                    .setContentText("连接中...")
-                            notifyMgr.notify(NOTIFICATION_ID, builder.build())
-                        }
-                        DownloadStatus.COMPLETED -> notifyMgr.cancel(NOTIFICATION_ID)
-                        DownloadStatus.STARTED -> {
-                            builder.setProgress(event.totalSize.toInt(), event.downloadSize.toInt(), false)
-                                .setContentTitle("新版本")
-                                .setContentText("${event.downloadSize.formatWithUnit()}/${event.totalSize.formatWithUnit()}")
-                            notifyMgr.notify(NOTIFICATION_ID, builder.build())
-                        }
-                    }
-                }
-    }
-
-    /*
-    fun saveUpdate() {
-        if (apkFile.exists()) {
-            installFromFile(apkFile)
-        }
-        val processor = BehaviorProcessor.create<DownloadEvent>()
-        processor.onNext(DownloadEvent(DownloadStatus.READY, 0, 0))
-        rawApiService.download(downloadUrl)
-                .subscribeOn(Schedulers.io())
-                .flatMap {
-                    response ->
-                    if (response.code() == 200) {
-                        Observable.just(response.body())
-                    } else {
-                        Observable.error(Error(response.message()))
-                    }
-                }
-                .subscribe({
-                    body ->
-                    processor.onNext(DownloadEvent(DownloadStatus.STARTED, 0, 0))
-
-                    var count = 0
-                    var downloadLength = 0L
-                    val contentLength = body!!.contentLength()
-                    val data = ByteArray(1024 * 8)
-
-                    try {
-                        val inputStream = BufferedInputStream(body.byteStream())
-                        val file = File.createTempFile("tucao", ".patch", cacheDir)
-                        val outputStream = BufferedOutputStream(file.outputStream())
-
-                        count = inputStream.read(data)
-                        while (count != -1) {
-                            outputStream.write(data, 0, count)
-                            downloadLength += count
-                            processor.onNext(DownloadEvent(DownloadStatus.STARTED, downloadLength, contentLength))
-                            count = inputStream.read(data)
-                        }
-                        outputStream.flush()
-
-                        processor.onNext(DownloadEvent(DownloadStatus.COMPLETED, downloadLength, contentLength))
-
-                        inputStream.close()
-                        outputStream.close()
-
-                        // 合成安装包
-                        val info = packageManager.getApplicationInfo(packageName, 0)
-                        val oldFile = File(info.sourceDir)
-                        val patchIn = GZIPInputStream(file.inputStream())
-                        FileByFileV1DeltaApplier().applyDelta(oldFile, patchIn, apkFile.outputStream())
-
-                        installFromFile(apkFile)
-                    } catch (error: Exception) {
-                        error.printStackTrace()
-                        // TODO: 下载失败
-                    }
-                }, {
-                    error ->
-                    error.printStackTrace()
-                    // TODO: 下载失败
-                })
-
-        val builder = NotificationCompat.Builder(this, PRIMARY_CHANNEL)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-
-        processor.sample(500, TimeUnit.MILLISECONDS)
-                .subscribe {
-                    event ->
-                    // 更新进度
-                    when (event.status) {
-                        DownloadStatus.READY -> {
-                            builder.setContentTitle("补丁包")
-                                    .setContentText("连接中...")
-                            notifyMgr.notify(NOTIFICATION_ID, builder.build())
-                        }
-                        DownloadStatus.COMPLETED -> {
-                            builder.setContentText("正在合成安装包...")
-                                    .setProgress(0, 0, false)
-                            notifyMgr.notify(NOTIFICATION_ID, builder.build())
-                        }
-                        DownloadStatus.STARTED -> {
-                            builder.setProgress(event.totalSize.toInt(), event.downloadSize.toInt(), false)
-                                .setContentTitle("补丁包")
-                                .setContentText("${event.downloadSize.formatWithUnit()}/${event.totalSize.formatWithUnit()}")
-                            notifyMgr.notify(NOTIFICATION_ID, builder.build())
-                        }
-                    }
-                }
-    }
-    */
-
-    fun installFromFile(file: File) {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-
-        val uri: Uri
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            uri = FileProvider.getUriForFile(this, "${BuildConfig.APPLICATION_ID}.fileprovider", file)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } else {
-            Runtime.getRuntime().exec("chmod 666 ${file.absolutePath}")
-            uri = Uri.fromFile(file)
-        }
-        intent.setDataAndType(uri, "application/vnd.android.package-archive")
-        startActivity(intent)
-    }
-
-    fun checkUpdate(quiet: Boolean) {
-        jsonApiService.update("3990dcd7-49e1-4040-92e9-912082dc1896", "3d580ea3-54e9-4659-9131-a78c56cf9b86", BuildConfig.VERSION_CODE)
-                .subscribeOn(Schedulers.io())
-                .retryWhen(ApiConfig.RetryWithDelay())
+                .flatMap { refreshMessageCount() }
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    version ->
-                    if (version.status == 1 && version.versionCode > BuildConfig.VERSION_CODE) {
-                        val titleText = updateDialog.findViewById(R.id.text_title) as TextView
-                        val descriptionText = updateDialog.findViewById(R.id.text_description) as TextView
-                        titleText.text = "发现新版本V${version.versionName}(${version.apkSize.formatWithUnit()})"
-                        descriptionText.text = version.description
-                        val saveUpdateBtn = updateDialog.findViewById(R.id.btn_save_update) as Button
-                        if (version.patchUrl.isNotEmpty()) {
-                            downloadUrl = version.patchUrl
-                            saveUpdateBtn.text = "省流量更新(${version.patchSize.formatWithUnit()})"
-                            saveUpdateBtn.visibility = View.VISIBLE
-                        }
-                        downloadUrl = version.apkUrl
-                        apkFile = File(filesDir, "吐槽_${version.versionName}.apk")
-                        updateDialog.show()
+                .subscribe({ count ->
+                    user.message = count
+                    if (count > 0) {
+                        messageCounter.text = "$count"
+                        messageCounter.visibility = View.VISIBLE
                     } else {
-                        if (!quiet) {
-                            "你已经是最新版了".toast()
-                        }
+                        messageCounter.visibility = View.INVISIBLE
                     }
-                }, {
-                    error ->
-                    error.printStackTrace()
-                    if (!quiet) {
-                        Snackbar.make(binding.root, "服务器异常，请手动检查更新", Snackbar.LENGTH_LONG)
-                                .setAction("打开百度网盘", {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://pan.baidu.com/s/1bptILyR"))
-                                    startActivity(intent)
-                                })
-                                .show()
-                    }
+                }, { _ ->
+                    // 网络错误静默忽略
                 })
+    }
+
+    private fun stopMessagePolling() {
+        messagePollDisposable?.dispose()
+        messagePollDisposable = null
+    }
+
+    // 从个人页面 HTML 提取未读消息数（div.t_all）
+    private fun refreshMessageCount(): Observable<Int> {
+        return rawApiService.personal()
+                .map { body ->
+                    val doc = Jsoup.parse(body.string())
+                    val tAllEl = doc.selectFirst("div.t_all")
+                    tAllEl?.text()?.trim()?.toIntOrNull() ?: 0
+                }
+                .onErrorReturnItem(user.message)
     }
 
     override fun onBackPressed() {

@@ -17,7 +17,7 @@ import me.sweetll.tucao.extension.logD
 import me.sweetll.tucao.extension.sanitizeHtml
 import me.sweetll.tucao.extension.toast
 import me.sweetll.tucao.model.other.User
-import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import org.greenrobot.eventbus.EventBus
 import org.jsoup.Jsoup
@@ -37,6 +37,7 @@ class PersonalViewModel(val activity: PersonalActivity, val fragment: PersonalFr
         }
         avatar.set(user.avatar)
         nickname.set(user.name)
+        uuid.set(user.uid)
         signature.set(user.signature)
     }
 
@@ -57,7 +58,7 @@ class PersonalViewModel(val activity: PersonalActivity, val fragment: PersonalFr
                     data ->
                     val file = File(image.compressPath)
                     val body = RequestBody.create(
-                            MediaType.parse("application/octet-stream"),
+                            "application/octet-stream".toMediaType(),
                             file
                     )
                     rawApiService.uploadAvatar(data, body)
@@ -120,10 +121,12 @@ class PersonalViewModel(val activity: PersonalActivity, val fragment: PersonalFr
     }
 
     private fun parsePersonal(doc: Document): Any {
-        // 获取头像地址
-        val index_div = doc.select("div.index")[0]
-        val avatar_img = index_div.child(0).child(0)
-        user.avatar = avatar_img.attr("src")
+        // 获取头像地址：a.avatar img 或 header 中的 .user_1 .n img
+        val avatarImg = doc.select("a.avatar img").firstOrNull()
+            ?: doc.select(".user_1 .n img").firstOrNull()
+        if (avatarImg != null) {
+            user.avatar = avatarImg.attr("src")
+        }
 
         return Object()
     }

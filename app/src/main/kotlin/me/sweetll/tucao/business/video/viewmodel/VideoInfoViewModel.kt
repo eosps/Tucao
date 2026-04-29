@@ -3,16 +3,21 @@ package me.sweetll.tucao.business.video.viewmodel
 import androidx.databinding.ObservableBoolean
 import androidx.databinding.ObservableField
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityOptionsCompat
 import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
 import androidx.recyclerview.widget.SimpleItemAnimator
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemClickListener
 import com.trello.rxlifecycle2.kotlin.bindToLifecycle
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseViewModel
 import me.sweetll.tucao.model.json.Part
@@ -24,7 +29,9 @@ import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.HistoryHelpers
 import me.sweetll.tucao.extension.NonNullObservableField
 import me.sweetll.tucao.extension.sanitizeHtml
+import me.sweetll.tucao.extension.toast
 import me.sweetll.tucao.widget.CustomBottomSheetDialog
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.text.SimpleDateFormat
 import java.util.*
@@ -154,6 +161,67 @@ class VideoInfoViewModel(val videoInfoFragment: VideoInfoFragment): BaseViewMode
             ).toBundle()
             UploaderActivity.intentTo(videoInfoFragment.activity!!, video.get()!!.userid, video.get()!!.user, avatar.get(), signature, headerBg, options)
         }
+    }
+
+    // 点击私信按钮：弹出对话框编辑并发送私信
+    fun onClickSendMessage(view: View) {
+        val v = video.get() ?: return
+        val activity = videoInfoFragment.activity ?: return
+        val targetUser = v.user
+
+        // 构建输入对话框
+        val editText = EditText(activity).apply {
+            hint = "输入私信内容（最多200字）"
+            maxLines = 4
+            filters = arrayOf(android.text.InputFilter.LengthFilter(200))
+            setPadding(48, 24, 48, 24)
+        }
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 0)
+            addView(editText)
+        }
+
+        AlertDialog.Builder(activity)
+                .setTitle("发送私信给 $targetUser")
+                .setView(container)
+                .setPositiveButton("发送") { dialog, _ ->
+                    val content = editText.text.toString().trim()
+                    if (content.isEmpty()) {
+                        "内容不能为空".toast()
+                        return@setPositiveButton
+                    }
+                    sendPrivateMessage(targetUser, content)
+                    dialog.dismiss()
+                }
+                .setNegativeButton("取消", null)
+                .show()
+    }
+
+    // 调用 API 发送私信
+    private fun sendPrivateMessage(targetUser: String, content: String) {
+        rawApiService.sendMessage(targetUser, "", content)
+                .bindToLifecycle(videoInfoFragment)
+                .subscribeOn(Schedulers.io())
+                .map { body ->
+                    val doc = Jsoup.parse(body.string())
+                    val text = doc.body().text()
+                    if ("成功" in text) {
+                        ""
+                    } else {
+                        text
+                    }
+                }
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ errorMsg ->
+                    if (errorMsg.isEmpty()) {
+                        "发送成功".toast()
+                    } else {
+                        errorMsg.toast()
+                    }
+                }, { error ->
+                    error.message?.toast()
+                })
     }
 
     private fun parseAvatar(doc: Document): String {

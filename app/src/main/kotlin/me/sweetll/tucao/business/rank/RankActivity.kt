@@ -18,7 +18,16 @@ class RankActivity : BaseActivity() {
     lateinit var binding: ActivityRankBinding
     val viewModel = RankViewModel(this)
 
-    lateinit var parentChannels: List<Channel>
+    // 排行榜可用的频道列表（只有这些 tid 在 /html/hot.html?p=X 页面有数据）
+    private val rankChannels = listOf(
+            Channel(0, "全站"),
+            Channel(11, "连载新番"),
+            Channel(10, "完结番组"),
+            Channel(26, "剧场版"),
+            Channel(38, "电影"),
+            Channel(39, "电视剧"),
+            Channel(43, "天朝出品")
+    )
 
     override fun getToolbar(): Toolbar = binding.toolbar
 
@@ -35,9 +44,8 @@ class RankActivity : BaseActivity() {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_rank)
         binding.viewModel = viewModel
 
-        parentChannels = Channel.findAllParentChannels()
-        binding.viewPager.adapter = RankPagerAdapter(supportFragmentManager, parentChannels)
-        binding.viewPager.offscreenPageLimit = parentChannels.size
+        binding.viewPager.adapter = RankPagerAdapter(supportFragmentManager, rankChannels)
+        binding.viewPager.offscreenPageLimit = rankChannels.size
         binding.tab.setupWithViewPager(binding.viewPager)
     }
 

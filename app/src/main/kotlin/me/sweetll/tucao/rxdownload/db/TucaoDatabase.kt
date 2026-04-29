@@ -10,7 +10,7 @@ import me.sweetll.tucao.rxdownload.entity.DownloadMission
 import me.sweetll.tucao.rxdownload.entity.DownloadMissionDao
 
 
-@Database(entities = [DownloadBean::class, DownloadMission::class], version = 1)
+@Database(entities = [DownloadBean::class, DownloadMission::class], version = 1, exportSchema = false)
 abstract class TucaoDatabase : RoomDatabase() {
     companion object {
         val db by lazy {

@@ -27,18 +27,18 @@ data class Durl(
         }
     }
 
-    constructor(source: Parcel) : this(source.readInt(), source.readLong(), source.readString(), source.readString(), source.readString(), source.readInt(), source.readLong(), source.readLong())
+    constructor(source: Parcel) : this(source.readInt(), source.readLong(), source.readString() ?: "", source.readString() ?: "", source.readString() ?: "", source.readInt(), source.readLong(), source.readLong())
 
     override fun describeContents() = 0
 
-    override fun writeToParcel(dest: Parcel?, flags: Int) {
-        dest?.writeInt(order)
-        dest?.writeLong(length)
-        dest?.writeString(url)
-        dest?.writeString(cacheFolderPath)
-        dest?.writeString(cacheFileName)
-        dest?.writeInt(flag)
-        dest?.writeLong(downloadSize)
-        dest?.writeLong(totalSize)
+    override fun writeToParcel(dest: Parcel, flags: Int) {
+        dest.writeInt(order)
+        dest.writeLong(length)
+        dest.writeString(url)
+        dest.writeString(cacheFolderPath)
+        dest.writeString(cacheFileName)
+        dest.writeInt(flag)
+        dest.writeLong(downloadSize)
+        dest.writeLong(totalSize)
     }
 }

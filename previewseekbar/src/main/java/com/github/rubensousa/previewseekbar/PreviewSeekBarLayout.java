@@ -47,7 +47,7 @@ public class PreviewSeekBarLayout extends RelativeLayout implements SeekBar.OnSe
     private void init(Context context, AttributeSet attrs) {
         TypedValue outValue = new TypedValue();
 
-        getContext().getTheme().resolveAttribute(R.attr.colorAccent, outValue, true);
+        getContext().getTheme().resolveAttribute(androidx.appcompat.R.attr.colorAccent, outValue, true);
         tintColor = ContextCompat.getColor(context, outValue.resourceId);
 
         // Create morph view

@@ -14,13 +14,13 @@ data class Reply(val id: String,
                  @field:Json(name = "username")val userName: String,
                  var hasSend: Boolean = true) : Parcelable {
     constructor(source: Parcel) : this(
-            source.readString(),
-            source.readString(),
-            source.readString(),
-            source.readString(),
-            source.readString(),
-            source.readString(),
-            source.readString(),
+            source.readString() ?: "",
+            source.readString() ?: "",
+            source.readString() ?: "",
+            source.readString() ?: "",
+            source.readString() ?: "",
+            source.readString() ?: "",
+            source.readString() ?: "",
             1 == source.readInt()
     )
 

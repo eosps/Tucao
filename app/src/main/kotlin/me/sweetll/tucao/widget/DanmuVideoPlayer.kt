@@ -133,7 +133,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                 .setDuration(200)
                 .setInterpolator(DecelerateInterpolator())
                 .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationStart(animation: Animator?) {
+                    override fun onAnimationStart(animation: Animator) {
                         settingLayout.visibility = View.VISIBLE
                     }
                 })
@@ -146,7 +146,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                 .translationX((280f).dp2px())
                 .setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator?) {
+                    override fun onAnimationEnd(animation: Animator) {
                         settingLayout.visibility = View.INVISIBLE
                     }
                 })
@@ -166,7 +166,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                 .setDuration(400)
                 .setInterpolator(DecelerateInterpolator())
                 .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationStart(animation: Animator?) {
+                    override fun onAnimationStart(animation: Animator) {
                         jumpLinear.visibility = View.VISIBLE
                     }
                 })
@@ -178,7 +178,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
             .translationX((-280f).dp2px())
             .setDuration(400)
             .setListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator?) {
+                override fun onAnimationEnd(animation: Animator) {
                     jumpLinear.visibility = View.INVISIBLE
                 }
             })

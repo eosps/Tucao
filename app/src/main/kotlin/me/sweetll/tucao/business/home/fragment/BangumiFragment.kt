@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.util.Pair
 import androidx.databinding.DataBindingUtil
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.transition.TransitionManager
 import com.bigkoo.convenientbanner.ConvenientBanner
@@ -19,10 +20,13 @@ import me.sweetll.tucao.base.BaseFragment
 import me.sweetll.tucao.business.channel.ChannelDetailActivity
 import me.sweetll.tucao.business.home.adapter.BangumiAdapter
 import me.sweetll.tucao.business.home.adapter.BannerHolder
+import me.sweetll.tucao.business.home.adapter.TodayVideoAdapter
 import me.sweetll.tucao.business.home.viewmodel.BangumiViewModel
+import me.sweetll.tucao.business.search.SearchActivity
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.databinding.FragmentBangumiBinding
 import me.sweetll.tucao.databinding.HeaderBangumiBinding
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.model.raw.Bangumi
 
 class BangumiFragment : BaseFragment() {
@@ -32,6 +36,7 @@ class BangumiFragment : BaseFragment() {
     val viewModel = BangumiViewModel(this)
 
     val bangumiAdapter = BangumiAdapter(null)
+    val todayVideoAdapter = TodayVideoAdapter(null)
 
     var isLoad = false
 
@@ -68,6 +73,21 @@ class BangumiFragment : BaseFragment() {
 
         binding.bangumiRecycler.layoutManager = LinearLayoutManager(activity)
         binding.bangumiRecycler.adapter = bangumiAdapter
+
+        // "今天更新"网格列表（3列，2行显示6个）
+        headerBinding.todayRecycler.layoutManager = GridLayoutManager(activity, 3)
+        headerBinding.todayRecycler.adapter = todayVideoAdapter
+        headerBinding.todayRecycler.addOnItemTouchListener(object : OnItemChildClickListener() {
+            override fun onSimpleItemChildClick(adapter: BaseQuickAdapter<*, *>, view: View, position: Int) {
+                // 未使用
+            }
+        })
+        headerBinding.todayRecycler.addOnItemTouchListener(object : com.chad.library.adapter.base.listener.OnItemClickListener() {
+            override fun onSimpleItemClick(adapter: BaseQuickAdapter<*, *>, view: View, position: Int) {
+                val video = adapter.getItem(position) as Video
+                SearchActivity.intentTo(activity!!, video.title, 24)
+            }
+        })
 
         binding.bangumiRecycler.addOnItemTouchListener(object: OnItemChildClickListener() {
             override fun onSimpleItemChildClick(adapter: BaseQuickAdapter<*, *>, view: View, position: Int) {
@@ -129,6 +149,10 @@ class BangumiFragment : BaseFragment() {
                 .setPageIndicator(intArrayOf(R.drawable.indicator_white_circle, R.drawable.indicator_pink_circle))
                 .setPageIndicatorAlign(ConvenientBanner.PageIndicatorAlign.ALIGN_PARENT_RIGHT)
                 .startTurning(3000)
+    }
+
+    fun loadTodayUpdates(todayVideos: List<Video>) {
+        todayVideoAdapter.setNewData(todayVideos.toMutableList())
     }
 
     fun loadError() {

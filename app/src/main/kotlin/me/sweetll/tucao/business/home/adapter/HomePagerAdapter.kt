@@ -5,16 +5,14 @@ import androidx.fragment.app.FragmentPagerAdapter
 import me.sweetll.tucao.business.home.fragment.*
 
 class HomePagerAdapter(fm : FragmentManager) : FragmentPagerAdapter(fm) {
-    val tabTitles = listOf("推荐", "新番", "影剧", "游戏", "动画", "频道")
+    val tabTitles = listOf("推荐", "新番", "影剧", "综合")
 
     override fun getItem(position: Int) =
         when (position) {
             0 -> RecommendFragment()
             1 -> BangumiFragment()
             2 -> MovieFragment()
-            3 -> GameFragment()
-            4 -> AnimationFragment()
-            else -> ChannelListFragment()
+            else -> AnimationFragment()
         }
 
     override fun getCount() = tabTitles.size

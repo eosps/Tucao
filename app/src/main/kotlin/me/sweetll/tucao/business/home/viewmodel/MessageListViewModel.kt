@@ -30,18 +30,36 @@ class MessageListViewModel(val activity: MessageListActivity): BaseViewModel() {
     }
 
     fun parseMessageList(doc: Document): MutableList<MessageList> {
-        val message_table = doc.select("table.inbox")[0]
-        return message_table.child(0).children().dropLast(1).fold(mutableListOf()) {
-            res, ele ->
-            val avatar = ele.child(0).selectFirst("img").attr("src")
-            val content = ele.child(1)
-            val id = content.child(1).`val`()
-            val link_a = content.child(0)
-            val username = link_a.selectFirst("em.red").text()
-            val time = link_a.selectFirst("em.time").text().removePrefix("对话于 ")
-            val message = link_a.selectFirst("div.show").text()
-            val read = link_a.selectFirst("em.bgblue") == null
-            res.add(MessageList(id, username, avatar, time, message, read))
+        // 新版网站结构：div.minbox > div.item
+        // 每个 item 包含 div.l（头像）和 div.r（消息内容）
+        val items = doc.select("div.minbox div.item")
+        if (items.isEmpty()) return mutableListOf()
+
+        return items.fold(mutableListOf()) { res, ele ->
+            // 头像：div.l a img
+            val avatar = ele.selectFirst("div.l img")?.attr("src") ?: ""
+
+            // 消息链接：div.r a（href 包含 messageid）
+            val linkA = ele.selectFirst("div.r a[href*=messageid]")
+            val href = linkA?.attr("href") ?: ""
+            val idMatch = "messageid=(\\d+)".toRegex().find(href)
+            val id = idMatch?.groupValues?.get(1) ?: ""
+
+            // 用户名：div.u
+            val username = linkA?.selectFirst("div.u")?.text()?.trim() ?: ""
+
+            // 消息内容：div.c
+            val message = linkA?.selectFirst("div.c")?.text()?.trim() ?: ""
+
+            // 时间：div.t
+            val time = linkA?.selectFirst("div.t")?.text()?.trim() ?: ""
+
+            // 是否已读：旧版用 em.bgblue 标记未读，新版无明确标记，默认已读
+            val read = true
+
+            if (id.isNotEmpty()) {
+                res.add(MessageList(id, username, avatar, time, message, read))
+            }
             res
         }
     }

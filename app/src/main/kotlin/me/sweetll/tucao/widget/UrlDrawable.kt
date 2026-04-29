@@ -7,7 +7,7 @@ import android.graphics.drawable.Drawable
 class UrlDrawable: BitmapDrawable() {
     var drawable: Drawable? = null
 
-    override fun draw(canvas: Canvas?) {
+    override fun draw(canvas: Canvas) {
         drawable?.draw(canvas)
     }
 }

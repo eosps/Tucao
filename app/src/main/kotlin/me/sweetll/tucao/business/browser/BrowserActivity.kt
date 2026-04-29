@@ -32,7 +32,7 @@ class BrowserActivity : BaseActivity() {
     override fun initView(savedInstanceState: Bundle?) {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_browser)
 
-        val url: String = intent.getStringExtra(ARG_URL)
+        val url: String = intent.getStringExtra(ARG_URL) ?: ""
         binding.webView.loadUrl(url)
 
         binding.webView.settings.javaScriptEnabled = true

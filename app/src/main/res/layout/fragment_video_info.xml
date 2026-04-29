@@ -8,6 +8,9 @@
         <variable
             name="viewModel"
             type="me.sweetll.tucao.business.video.viewmodel.VideoInfoViewModel" />
+        <variable
+            name="user"
+            type="me.sweetll.tucao.model.other.User" />
     </data>
 
     <LinearLayout
@@ -144,7 +147,7 @@
 
         </LinearLayout>
 
-        <me.sweetll.tucao.widget.ForegroundRelativeLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingTop="8dp"
@@ -152,43 +155,86 @@
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:clipToPadding="false"
-            android:background="@color/white"
-            android:foreground="?android:selectableItemBackground"
-            android:stateListAnimator="@animator/raise"
-            android:onClick="@{viewModel::onClickUser}">
+            android:background="@color/white">
 
-            <ImageView
-                android:id="@+id/avatarImg"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                app:avatar="@{viewModel.avatar}" />
+            <!-- 左侧：头像+用户名+时间（可点击跳转用户页） -->
+            <me.sweetll.tucao.widget.ForegroundRelativeLayout
+                android:id="@+id/userInfoArea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_toStartOf="@+id/btnSendMessage"
+                android:clipToPadding="false"
+                android:foreground="?android:selectableItemBackground"
+                android:stateListAnimator="@animator/raise"
+                android:onClick="@{viewModel::onClickUser}">
 
-            <TextView
-                android:id="@+id/usernameText"
+                <ImageView
+                    android:id="@+id/avatarImg"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    app:avatar="@{viewModel.avatar}" />
+
+                <TextView
+                    android:id="@+id/usernameText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_toEndOf="@+id/avatarImg"
+                    android:text="@{viewModel.video.user}"
+                    android:textColor="@color/primary_text"
+                    android:textSize="12sp"
+                    tools:text="小智" />
+
+                <TextView
+                    android:id="@+id/createText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@+id/usernameText"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_toEndOf="@+id/avatarImg"
+                    android:text="@{viewModel.create}"
+                    android:textColor="@color/secondary_text"
+                    android:textSize="12sp"
+                    tools:text="发布于2017-07-21" />
+
+            </me.sweetll.tucao.widget.ForegroundRelativeLayout>
+
+            <!-- 右侧：私信按钮（仅登录态可见） -->
+            <LinearLayout
+                android:id="@+id/btnSendMessage"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="4dp"
-                android:layout_toEndOf="@+id/avatarImg"
-                android:text="@{viewModel.video.user}"
-                android:textColor="@color/primary_text"
-                android:textSize="12sp"
-                tools:text="小智" />
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/bg_message_button"
+                android:gravity="center_vertical"
+                android:onClick="@{viewModel::onClickSendMessage}"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:visibility="@{user.isValid() ? View.VISIBLE : View.GONE}">
 
-            <TextView
-                android:id="@+id/createText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_below="@+id/usernameText"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="4dp"
-                android:layout_toEndOf="@+id/avatarImg"
-                android:text="@{viewModel.create}"
-                android:textColor="@color/secondary_text"
-                android:textSize="12sp"
-                tools:text="发布于2017-07-21" />
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_send_message"
+                    android:importantForAccessibility="no" />
 
-        </me.sweetll.tucao.widget.ForegroundRelativeLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="私信"
+                    android:textColor="@color/pink_500"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+        </RelativeLayout>
 
         <!--分割线-->
         <View

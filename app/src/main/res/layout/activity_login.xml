@@ -48,6 +48,7 @@
                     android:text="登录到吐槽"
                     android:textColor="@color/primary_text" />
 
+                <!-- 用户名输入（原来是邮箱，现在网站改为用户名登录） -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -56,14 +57,14 @@
                     android:theme="@style/PinkEdit">
 
                     <AutoCompleteTextView
-                        android:id="@+id/emailEdit"
+                        android:id="@+id/usernameEdit"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:fontFamily="monospace"
-                        android:hint="邮箱"
-                        android:inputType="textEmailAddress"
+                        android:hint="用户名"
+                        android:inputType="text"
                         android:selectAllOnFocus="true"
-                        android:text="@={viewModel.email}"
+                        android:text="@={viewModel.username}"
                         android:textSize="16sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
@@ -90,42 +91,6 @@
                         android:textSize="16sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColorHint="@color/pink_300"
-                        android:theme="@style/PinkEdit">
-
-                        <EditText
-                            android:id="@+id/codeEdit"
-                            android:layout_width="100dp"
-                            android:layout_height="wrap_content"
-                            android:digits="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                            android:fontFamily="monospace"
-                            android:hint="验证码"
-                            android:inputType="text"
-                            android:selectAllOnFocus="true"
-                            android:text="@={viewModel.code}"
-                            android:textSize="16sp" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <ImageView
-                        android:layout_width="112dp"
-                        android:layout_height="40dp"
-                        android:onClick="@{viewModel::onClickCode}"
-                        android:scaleType="fitXY"
-                        app:imageData="@{viewModel.codeBytes}" />
-
-                </LinearLayout>
 
                 <FrameLayout
                     android:layout_width="match_parent"

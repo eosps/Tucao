@@ -260,7 +260,7 @@ class VideoCommentsFragment: BaseFragment() {
             transition.duration = 240
             transition.playTogether(circularReveal, translate, colorFade)
             transition.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator?) {
+                override fun onAnimationEnd(animation: Animator) {
                     binding.commentContainer.overlay.clear()
                 }
             })

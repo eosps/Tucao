@@ -3,4 +3,19 @@
     <Preference android:title="下载位置"
         android:key="download_path" >
     </Preference>
+    <PreferenceCategory android:title="备份与恢复">
+        <Preference android:title="备份路径"
+            android:key="backup_path" >
+        </Preference>
+        <Preference android:title="立即备份"
+            android:key="backup_now" >
+        </Preference>
+        <Preference android:title="从备份恢复"
+            android:key="restore_now" >
+        </Preference>
+        <Preference android:title="扫描恢复缓存"
+            android:key="recover_cache"
+            android:summary="扫描下载目录，恢复丢失的离线缓存记录" >
+        </Preference>
+    </PreferenceCategory>
 </PreferenceScreen>

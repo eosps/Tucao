@@ -69,17 +69,6 @@ class DownloadService : Service() {
     val sampleMap: ArrayMap<String, Boolean> = ArrayMap()
     val missionQueue = LinkedBlockingQueue<String>()
 
-    override fun onCreate() {
-        Log.d("DownloadService", "On Create")
-        super.onCreate()
-        binder = DownloadBinder()
-
-        AndroidInjection.inject(this)
-
-        syncFromDb()
-        launchMissionConsumer()
-    }
-
     override fun onDestroy() {
         Log.d("DownloadService", "On Destroy")
         super.onDestroy()
@@ -89,21 +78,59 @@ class DownloadService : Service() {
         return binder
     }
 
+    override fun onCreate() {
+        Log.d("DownloadService", "On Create")
+        super.onCreate()
+        binder = DownloadBinder()
+
+        AndroidInjection.inject(this)
+
+        // Android 8.0+ 要求 startForegroundService 后必须立即调用 startForeground
+        // 先显示一个临时通知，避免 ANR
+        startForeground(ONGOING_NOTIFICATION_ID, buildPlaceholderNotification())
+
+        syncFromDb()
+        launchMissionConsumer()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("DownloadService", "On Start Command")
+        // 确保前台通知已创建（onCreate 可能已调用，但 onStartCommand 也会被触发）
+        startForeground(ONGOING_NOTIFICATION_ID, buildPlaceholderNotification())
+
         intent?.let {
             when (it.action) {
                 ACTION_PAUSE -> {
-                    val vid = it.getStringExtra(ACTION_URL)
+                    val vid = it.getStringExtra(ACTION_URL) ?: return@let
                     pause(vid)
                 }
                 ACTION_CANCEL -> {
-                    val vid = it.getStringExtra(ACTION_URL)
+                    val vid = it.getStringExtra(ACTION_URL) ?: return@let
                     DownloadHelpers.cancelDownload(vid)
                 }
             }
         }
         return START_STICKY
+    }
+
+    /**
+     * 构建一个占位前台通知，满足 Android 8.0+ 对 startForegroundService 的要求
+     * 当有实际下载任务时会替换为真正的下载通知
+     */
+    private fun buildPlaceholderNotification(): Notification {
+        val nfIntent = Intent(this, DownloadActivity::class.java)
+        nfIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val pendingIntent = TaskStackBuilder.create(this)
+                .addParentStack(DownloadActivity::class.java)
+                .addNextIntent(nfIntent)
+                .getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT)
+
+        return NotificationCompat.Builder(this, PRIMARY_CHANNEL)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("下载服务")
+                .setContentText("等待下载任务...")
+                .setContentIntent(pendingIntent)
+                .build()
     }
 
     @SuppressLint("CheckResult")
@@ -220,39 +247,58 @@ class DownloadService : Service() {
                             bean.lastModified = header.get("Last-Modified") ?: "Wed, 21 Oct 2015 07:28:00 GMT"
                             bean.etag = header.get("ETag") ?: "\"\""
 
-                            var count: Int
                             val data = ByteArray(1024 * 8)
-                            val fileSize: Long = body!!.contentLength()
+                            val fileSize = body?.contentLength() ?: -1L
+                            val isResponse200 = response.code() == 200
 
-                            if (response.code() == 200 || bean.downloadLength == 0L) {
+                            if (isResponse200) {
+                                // 服务器返回完整内容（不支持断点续传或文件已变），从头下载
                                 bean.downloadLength = 0
+                                if (fileSize > 0) bean.contentLength = fileSize
+                                bean.prepareFile()
+                            } else if (bean.downloadLength == 0L && fileSize > 0) {
+                                // 首次下载（206 响应），设置总大小
                                 bean.contentLength = fileSize
                                 bean.prepareFile()
                             }
-
-                            val inputStream = BufferedInputStream(body.byteStream(), 1024 * 8)
-                            val file = bean.getRandomAccessFile()
-                            file.seek(bean.downloadLength)
+                            // 206 续传：保持 downloadLength 和 contentLength 不变
 
                             processor.onNext(DownloadEvent(DownloadStatus.STARTED, mission.downloadLength, mission.contentLength))
 
-                            count = inputStream.read(data)
-                            while (count != -1 && !mission.pause) {
-                                bean.downloadLength += count
-                                file.write(data, 0, count)
-                                processor.onNext(DownloadEvent(DownloadStatus.STARTED, mission.downloadLength, mission.contentLength))
-                                count = inputStream.read(data)
+                            // 用 use 确保所有流和文件句柄正确关闭
+                            body?.byteStream()?.use { rawStream ->
+                                BufferedInputStream(rawStream, 1024 * 8).use { inputStream ->
+                                    bean.getRandomAccessFile().use { file ->
+                                        file.seek(bean.downloadLength)
+
+                                        var count = inputStream.read(data)
+                                        while (count != -1 && !mission.pause) {
+                                            bean.downloadLength += count
+                                            file.write(data, 0, count)
+                                            processor.onNext(DownloadEvent(DownloadStatus.STARTED, mission.downloadLength, mission.contentLength))
+                                            count = inputStream.read(data)
+                                        }
+
+                                        // 确保数据刷入磁盘
+                                        file.fd.sync()
+                                    }
+                                }
                             }
 
                             if (mission.pause) {
                                 processor.onNext(DownloadEvent(DownloadStatus.PAUSED))
                             }
 
-                            if (mission.downloadLength == mission.contentLength) {
-                                processor.onNext(DownloadEvent(DownloadStatus.COMPLETED, mission.downloadLength, mission.contentLength))
+                            // 完成检查：有 Content-Length 时比较大小，没有时流结束即完成
+                            if (!mission.pause) {
+                                if (mission.contentLength > 0 && mission.downloadLength >= mission.contentLength) {
+                                    processor.onNext(DownloadEvent(DownloadStatus.COMPLETED, mission.downloadLength, mission.contentLength))
+                                } else if (mission.contentLength <= 0 && mission.downloadLength > 0) {
+                                    // 服务器未返回 Content-Length，流结束即视为完成
+                                    bean.contentLength = bean.downloadLength
+                                    processor.onNext(DownloadEvent(DownloadStatus.COMPLETED, mission.downloadLength, mission.contentLength))
+                                }
                             }
-
-                            file.close()
                         } catch (error: Exception) {
                             error.printStackTrace()
                             processor.onNext(DownloadEvent(DownloadStatus.FAILED))

@@ -2,11 +2,7 @@ package me.sweetll.tucao.widget
 
 import android.content.Context
 import android.content.DialogInterface
-import android.os.Build
 import android.os.Bundle
-import androidx.core.view.AccessibilityDelegateCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -15,9 +11,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatDialog
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import me.sweetll.tucao.R
-import me.sweetll.tucao.extension.logD
 
 class CustomBottomSheetDialog: AppCompatDialog {
 
@@ -33,10 +31,12 @@ class CustomBottomSheetDialog: AppCompatDialog {
             var resultId = themeId
             if (themeId == 0) {
                 val outValue = TypedValue()
-                if (context.theme.resolveAttribute(R.attr.bottomSheetDialogTheme, outValue, true)) {
+                // 使用 design_default_background 这个属性在新版 Material 中存在
+                if (context.theme.resolveAttribute(com.google.android.material.R.attr.bottomSheetDialogTheme, outValue, true)) {
                     resultId = outValue.resourceId
                 } else {
-                    resultId = R.style.Theme_Design_Light_BottomSheetDialog;
+                    // 回退到 Material 主题
+                    resultId = com.google.android.material.R.style.Theme_Design_Light_BottomSheetDialog
                 }
             }
             return resultId
@@ -59,17 +59,17 @@ class CustomBottomSheetDialog: AppCompatDialog {
         super.setContentView(wrapInBottomSheet(layoutResID, null, null))
     }
 
-    override fun setContentView(view: View?) {
+    override fun setContentView(view: View) {
         super.setContentView(wrapInBottomSheet(0, view, null))
     }
 
-    override fun setContentView(view: View?, params: ViewGroup.LayoutParams?) {
+    override fun setContentView(view: View, params: ViewGroup.LayoutParams?) {
         super.setContentView(wrapInBottomSheet(0, view, params))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setLayout(
+        window?.setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
         )
     }
@@ -114,7 +114,7 @@ class CustomBottomSheetDialog: AppCompatDialog {
             }
         }
         ViewCompat.setAccessibilityDelegate(bottomSheet, object: AccessibilityDelegateCompat() {
-            override fun onInitializeAccessibilityNodeInfo(host: View?, info: AccessibilityNodeInfoCompat) {
+            override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfoCompat) {
                 super.onInitializeAccessibilityNodeInfo(host, info)
                 if (mCancelable) {
                     info.addAction(AccessibilityNodeInfoCompat.ACTION_DISMISS)
@@ -124,7 +124,7 @@ class CustomBottomSheetDialog: AppCompatDialog {
                 }
             }
 
-            override fun performAccessibilityAction(host: View?, action: Int, args: Bundle?): Boolean {
+            override fun performAccessibilityAction(host: View, action: Int, args: Bundle?): Boolean {
                 if (action == AccessibilityNodeInfoCompat.ACTION_DISMISS && mCancelable) {
                     cancel()
                     return true

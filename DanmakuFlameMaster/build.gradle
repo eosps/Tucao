@@ -17,8 +17,8 @@
 apply plugin: 'com.android.library'
 
 android {
+    namespace 'master.flame.danmaku'
     compileSdkVersion versions.compileSdk
-    buildToolsVersion versions.buildTools
 
     defaultConfig {
         minSdkVersion 9

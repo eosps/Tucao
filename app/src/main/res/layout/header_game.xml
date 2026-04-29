@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <data>
+
         <variable
             name="viewModel"
             type="me.sweetll.tucao.business.home.viewmodel.GameViewModel" />
@@ -14,94 +15,99 @@
         android:paddingBottom="10dp"
         android:orientation="vertical">
 
-        <LinearLayout
+        <!-- 频道入口：3+2 网格卡片 -->
+        <GridLayout
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:orientation="horizontal">
+            android:layout_height="wrap_content"
+            android:columnCount="3"
+            android:rowCount="2"
+            android:useDefaultMargins="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="0dp">
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@color/white"
+                android:layout_height="44dp"
+                android:layout_columnWeight="1"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="3dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/bg_channel_button"
                 android:gravity="center"
                 android:onClick="@{viewModel::onClickChannel}"
                 android:tag="8"
                 android:text="游戏影像"
-                android:textColor="@color/secondary_text"
-                android:textSize="14sp" />
+                android:textColor="@color/colorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="0.5dp"
-                android:layout_marginStart="0.5dp"
-                android:layout_weight="1"
-                android:background="@color/white"
+                android:layout_height="44dp"
+                android:layout_columnWeight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/bg_channel_button"
                 android:gravity="center"
                 android:onClick="@{viewModel::onClickChannel}"
                 android:tag="34"
                 android:text="网络游戏"
-                android:textColor="@color/secondary_text"
-                android:textSize="14sp" />
+                android:textColor="@color/colorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="0.5dp"
-                android:layout_marginStart="0.5dp"
-                android:layout_weight="1"
-                android:background="@color/white"
+                android:layout_height="44dp"
+                android:layout_columnWeight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/bg_channel_button"
                 android:gravity="center"
                 android:onClick="@{viewModel::onClickChannel}"
                 android:tag="44"
                 android:text="单机游戏"
-                android:textColor="@color/secondary_text"
-                android:textSize="14sp" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="0.5dp"
-            android:orientation="horizontal">
+                android:textColor="@color/colorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@color/white"
+                android:layout_height="44dp"
+                android:layout_columnWeight="1"
+                android:layout_columnSpan="1"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="3dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/bg_channel_button"
                 android:gravity="center"
                 android:onClick="@{viewModel::onClickChannel}"
                 android:tag="33"
                 android:text="电子竞技"
-                android:textColor="@color/secondary_text"
-                android:textSize="14sp" />
+                android:textColor="@color/colorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="0.5dp"
-                android:layout_marginStart="0.5dp"
-                android:layout_weight="1"
-                android:background="@color/white"
+                android:layout_height="44dp"
+                android:layout_columnWeight="1"
+                android:layout_columnSpan="2"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/bg_channel_button"
                 android:gravity="center"
                 android:onClick="@{viewModel::onClickChannel}"
                 android:tag="42"
                 android:text="家机·掌机·手机"
-                android:textColor="@color/secondary_text"
-                android:textSize="14sp" />
+                android:textColor="@color/colorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="0.5dp"
-                android:layout_marginStart="0.5dp"
-                android:layout_weight="1"
-                android:background="@color/white" />
-
-        </LinearLayout>
+        </GridLayout>
 
     </LinearLayout>
 

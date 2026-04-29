@@ -8,11 +8,24 @@ object ApiConfig {
     const val API_KEY = "25tids8f1ew1821ed"
 
     const val PROTOCOL = "https"
-    const val BASE_URL = "www.tucao.cool"
+    const val DEFAULT_BASE_URL = "www.tucao.my"
+    const val PREF_BASE_URL = "base_url"
+
+    const val BASE_URL = DEFAULT_BASE_URL
 
     const val BASE_RAW_API_URL = "$PROTOCOL://$BASE_URL/"
     const val BASE_JSON_API_URL = "$PROTOCOL://$BASE_URL/api_v2/"
     const val BASE_XML_API_URL = "$PROTOCOL://$BASE_URL/"
+
+    /**
+     * 从 SharedPreferences 读取用户配置的 BASE_URL
+     * 默认返回 www.tucao.my
+     */
+    fun getBaseUrl(): String {
+        val sp = android.preference.PreferenceManager
+                .getDefaultSharedPreferences(me.sweetll.tucao.AppApplication.get())
+        return sp.getString(PREF_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    }
 
     /*
      * Json
@@ -22,17 +35,6 @@ object ApiConfig {
     const val VIEW_API_URL = "view.php"
     const val RANK_API_URL = "rank.php"
     const val REPLY_API_URL = "$PROTOCOL://$BASE_URL/index.php?m=comment&c=index&a=ajax"
-
-    const val UPDATE_API_URL = "http://45.63.54.11:12450/api/app-portal/version"
-
-    /*
-     * Drrr
-     */
-    const val CREATE_POST_API_URL = "http://45.63.54.11:13450/comment/create"
-    const val POSTS_API_URL = "http://45.63.54.11:13450/comments"
-    const val CREATE_REPLY_API_URL = "http://45.63.54.11:13450/reply/create/{commentId}"
-    const val REPLIES_API_URL = "http://45.63.54.11:13450/replies/{commentId}"
-    const val CREATE_VOTE_API_URL = "http://45.63.54.11:13450/vote/{commentId}"
 
     /*
      * XML
@@ -45,7 +47,9 @@ object ApiConfig {
      */
     const val INDEX_URL        = "/"
     const val LIST_URL         = "list/{tid}/"
-    const val BGM_URL          = "bgm/{year}/{month}/"
+    const val RANK_URL         = "html/hot.html"
+    const val BGM_URL          = "bgm/"
+    const val WEEK_BGM_URL     = "html/week_bgm.html"
     const val SEND_DANMU_URL   = "index.php?m=mukio&c=index&a=post"
     const val COMMENT_URL      = "index.php?m=comment&c=index&a=init&hot=0&iframe=1"
     const val SEND_COMMENT_URL = "index.php?m=comment&c=index&a=post"

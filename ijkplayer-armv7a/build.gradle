@@ -1,11 +1,10 @@
 apply plugin: 'com.android.library'
 
 android {
+    namespace 'tv.danmaku.ijk.media'
     // http://tools.android.com/tech-docs/new-build-system/tips
     //noinspection GroovyAssignabilityCheck
     compileSdkVersion versions.compileSdk
-    //noinspection GroovyAssignabilityCheck
-    buildToolsVersion versions.buildTools
 
     defaultConfig {
         minSdkVersion 9
@@ -24,5 +23,5 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }

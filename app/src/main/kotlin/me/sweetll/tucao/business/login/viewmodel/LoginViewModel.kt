@@ -20,53 +20,16 @@ import org.jsoup.nodes.Document
 
 class LoginViewModel(val activity: LoginActivity): BaseViewModel() {
 
-    val email = NonNullObservableField("")
+    // 用户名（原来是邮箱，现在网站改为用户名登录）
+    val username = NonNullObservableField("")
     val password = NonNullObservableField("")
-    val code = NonNullObservableField("")
-    val codeBytes = ObservableField<ByteArray>()
 
     val container = NonNullObservableField(View.VISIBLE)
     val progress = NonNullObservableField(View.GONE)
 
-    init {
-        initSession()
-    }
-
-    fun initSession() {
-        rawApiService.login_get()
-                .bindToLifecycle(activity)
-                .subscribeOn(Schedulers.io())
-                .retryWhen(ApiConfig.RetryWithDelay())
-                .subscribe({
-                    checkCode()
-                }, {
-                    error ->
-                    error.printStackTrace()
-                })
-    }
-
-    fun checkCode() {
-        rawApiService.checkCode()
-                .bindToLifecycle(activity)
-                .subscribeOn(Schedulers.io())
-                .retryWhen(ApiConfig.RetryWithDelay())
-                .subscribe({
-                    body ->
-                    this.codeBytes.set(body.bytes())
-                }, {
-                    error ->
-                    error.printStackTrace()
-                    error.message?.toast()
-                })
-    }
-
     fun dismiss(view: View) {
         activity.setResult(Activity.RESULT_CANCELED)
         activity.supportFinishAfterTransition()
-    }
-
-    fun onClickCode(view: View) {
-        checkCode()
     }
 
     fun onClickSignUp(view: View) {
@@ -76,7 +39,8 @@ class LoginViewModel(val activity: LoginActivity): BaseViewModel() {
 
     fun onClickSignIn(view: View) {
         activity.showLoading()
-        rawApiService.login_post(email.get(), password.get(), code.get())
+        // 网站已取消验证码，code 传空字符串
+        rawApiService.login_post(username.get(), password.get(), "")
                 .bindToLifecycle(activity)
                 .subscribeOn(Schedulers.io())
                 .retryWhen(ApiConfig.RetryWithDelay())
@@ -95,7 +59,7 @@ class LoginViewModel(val activity: LoginActivity): BaseViewModel() {
                     activity.showLogin()
                 }
                 .subscribe({
-                    user.email = email.get()
+                    user.username = username.get()
                     activity.setResult(Activity.RESULT_OK)
                     activity.supportFinishAfterTransition()
                 }, {
@@ -118,31 +82,64 @@ class LoginViewModel(val activity: LoginActivity): BaseViewModel() {
         }
     }
 
+    /**
+     * 解析个人信息页面 HTML，提取用户数据
+     * 网站结构已更新，使用 null 安全的选择器避免崩溃
+     */
     private fun parsePersonal(doc: Document): Any {
-        // 获取等级
-        val lv_a = doc.select("a.lv")[0]
-        user.level = lv_a.text().substring(3).toInt()
+        // 获取 UID：从 /play/u391975/ 格式的链接中提取
+        val nameEl = doc.select("a.name").firstOrNull()
+        val href = nameEl?.attr("href") ?: ""
+        val uidMatch = "/play/u(\\d+)/".toRegex().find(href)
+        if (uidMatch != null) {
+            user.uid = uidMatch.groupValues[1]
+        }
 
-        // 获取用户名
-        val name_div = doc.select("a.name")[0]
-        user.name = name_div.text()
+        // 获取用户名：a.name 内文本（跳过 <b> 标签内容，取最后一个文本节点）
+        if (nameEl != null) {
+            // a.name 结构: <b>在线天数...</b><b>经验63</b>eosps<span>一元八次</span>
+            // 用户名是直接的文本节点，在所有 <b> 和 <span> 之外
+            val textNodes = nameEl.textNodes()
+            val usernameText = textNodes.lastOrNull()?.text()?.trim() ?: ""
+            if (usernameText.isNotEmpty()) {
+                user.name = usernameText
+            }
+        }
 
-        // 获取头像地址
-        val index_div = doc.select("div.index")[0]
-        val avatar_img = index_div.child(0).child(0)
-        user.avatar = avatar_img.attr("src")
+        // 获取头像地址：a.avatar img 或 header 中的 .user_1 .n img
+        val avatarImg = doc.select("a.avatar img").firstOrNull()
+            ?: doc.select(".user_1 .n img").firstOrNull()
+        if (avatarImg != null) {
+            user.avatar = avatarImg.attr("src")
+        }
 
-        // 获取签名
-        val index_table = doc.select("table.index_table")[0]
-        val signature_td = index_table.child(0).child(2).child(0)
-        user.signature = signature_td.text().removeSuffix(" 更新")
+        // 获取签名：a.name span 内文本
+        val signatureEl = nameEl?.select("span")?.firstOrNull()
+        if (signatureEl != null) {
+            user.signature = signatureEl.text()
+        }
 
-        // 获取短消息
-        val message_td = index_table.child(0).child(0).child(3)
-        val message = message_td.child(0).child(0).text()
-        user.message = if (message == "--") 0 else message.toInt()
+        // 获取经验值（替代原来的等级）
+        try {
+            val nameEl2 = doc.select("a.name").firstOrNull()
+            if (nameEl2 != null) {
+                val bTags = nameEl2.select("b")
+                for (b in bTags) {
+                    val text = b.text()
+                    if (text.startsWith("经验")) {
+                        user.level = text.removePrefix("经验").toIntOrNull() ?: 0
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            user.level = 0
+        }
 
-        // 获取
+        // 短消息数量：从 div.t_all 提取未读数
+        val tAllEl = doc.selectFirst("div.t_all")
+        user.message = tAllEl?.text()?.trim()?.toIntOrNull() ?: 0
+
         return Object()
     }
 

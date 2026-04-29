@@ -267,7 +267,7 @@ class SearchActivity : BaseActivity() {
                 .alpha(1f)
                 .setDuration(200)
                 .setListener(object: AnimatorListenerAdapter() {
-                    override fun onAnimationStart(animation: Animator?) {
+                    override fun onAnimationStart(animation: Animator) {
                         binding.maskView.visibility = View.VISIBLE
                     }
                 })
@@ -296,7 +296,7 @@ class SearchActivity : BaseActivity() {
                 .alpha(0f)
                 .setDuration(200)
                 .setListener(object: AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator?) {
+                    override fun onAnimationEnd(animation: Animator) {
                         binding.maskView.visibility = View.INVISIBLE
                     }
                 })

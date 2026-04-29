@@ -134,11 +134,21 @@ class DownloadActivity : BaseActivity() {
             currentContextMenuCallback?.onClickDelete()
             currentActionMode?.finish()
         }
+        // 导出按钮
+        binding.exportBtn.setOnClickListener {
+            currentContextMenuCallback?.onClickExport()
+        }
+        // 分享按钮
+        binding.shareBtn.setOnClickListener {
+            currentContextMenuCallback?.onClickShare()
+        }
     }
 
     fun updateBottomMenu(deleteEnabled: Boolean, isPickAll: Boolean) {
         binding.deleteBtn.isEnabled = deleteEnabled
         binding.updateBtn.isEnabled = deleteEnabled
+        binding.exportBtn.isEnabled = deleteEnabled
+        binding.shareBtn.isEnabled = deleteEnabled
         if (isPickAll) {
             binding.pickAllBtn.text = "取消全选"
         } else {
@@ -152,6 +162,10 @@ class DownloadActivity : BaseActivity() {
         fun onClickDelete()
 
         fun onClickUpdate() {}
+
+        fun onClickShare() {}
+
+        fun onClickExport() {}
 
         fun onClickPickAll(): Boolean
     }

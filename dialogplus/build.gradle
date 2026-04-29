@@ -1,8 +1,8 @@
 apply plugin: 'com.android.library'
 
 android {
+    namespace 'com.orhanobut.dialogplus'
     compileSdkVersion versions.compileSdk
-    buildToolsVersion versions.buildTools
 
     defaultConfig {
         minSdkVersion 10

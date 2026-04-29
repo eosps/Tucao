@@ -20,10 +20,22 @@ interface RawApiService {
     @Headers("Cookie: tucao_verify=ok")
     fun list(@Path("tid") tid: Int): Observable<ResponseBody>
 
+    @GET(ApiConfig.RANK_URL)
+    @Headers("Cookie: tucao_verify=ok")
+    fun rankHtml(@Query("p") tid: Int): Observable<ResponseBody>
+
     @GET(ApiConfig.BGM_URL)
     @Headers("Cookie: tucao_verify=ok")
-    fun bgm(@Path("year") year: Int,
-            @Path("month") month: Int): Observable<ResponseBody>
+    fun bgm(@Query("list") list: Int = 18,
+            @Query("month") month: String = "",
+            @Query("types") types: String = "",
+            @Query("week") week: Int = 0,
+            @Query("year") year: String = "",
+            @Query("page") page: String = ""): Observable<ResponseBody>
+
+    @GET(ApiConfig.WEEK_BGM_URL)
+    @Headers("Cookie: tucao_verify=ok")
+    fun weekBgm(): Observable<ResponseBody>
 
     @FormUrlEncoded
     @POST(ApiConfig.SEND_DANMU_URL)

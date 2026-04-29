@@ -69,8 +69,8 @@ class ReplyActivity : BaseActivity() {
     }
 
     override fun initView(savedInstanceState: Bundle?) {
-        commentId = intent.getStringExtra(ARG_COMMENT_ID)
-        comment = intent.getParcelableExtra(ARG_COMMENT)
+        commentId = intent.getStringExtra(ARG_COMMENT_ID) ?: ""
+        comment = intent.getParcelableExtra(ARG_COMMENT)!!
 
         viewModel = ReplyViewModel(this, commentId, comment.id)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_reply)
@@ -175,7 +175,7 @@ class ReplyActivity : BaseActivity() {
             transition.duration = 240
             transition.playTogether(circularReveal, translate, colorFade)
             transition.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator?) {
+                override fun onAnimationEnd(animation: Animator) {
                     binding.replyContainer.overlay.clear()
                 }
             })

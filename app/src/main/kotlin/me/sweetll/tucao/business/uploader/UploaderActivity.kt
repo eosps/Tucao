@@ -73,10 +73,10 @@ class UploaderActivity : BaseActivity() {
 
     override fun initView(savedInstanceState: Bundle?) {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_uploader)
-        viewModel = UploaderViewModel(this, intent.getStringExtra(ARG_USER_ID))
+        viewModel = UploaderViewModel(this, intent.getStringExtra(ARG_USER_ID) ?: "")
         binding.viewModel = viewModel
 
-        val avatar = intent.getStringExtra(ARG_AVATAR)
+        val avatar = intent.getStringExtra(ARG_AVATAR) ?: ""
         val username = intent.getStringExtra(ARG_USERNAME)
         val signature = intent.getStringExtra(ARG_SIGNATURE)
         val headerBg = intent.getStringExtra(ARG_HEADER_BG)

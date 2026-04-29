@@ -4,6 +4,7 @@ import dagger.Module
 import dagger.android.ContributesAndroidInjector
 import me.sweetll.tucao.business.home.MainActivity
 import me.sweetll.tucao.business.splash.SplashActivity
+import me.sweetll.tucao.business.today.TodayActivity
 
 @Module
 abstract class ActivityModule {
@@ -13,5 +14,8 @@ abstract class ActivityModule {
 
     @ContributesAndroidInjector
     abstract fun contributeSplashActivity(): SplashActivity
+
+    @ContributesAndroidInjector
+    abstract fun contributeTodayActivity(): TodayActivity
 
 }

@@ -112,7 +112,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             viewModel = VideoViewModel(this)
             viewModel.queryVideo(hid)
         } else {
-            val video: Video = intent.getParcelableExtra(ARG_VIDEO)
+            val video: Video = intent.getParcelableExtra(ARG_VIDEO)!!
             viewModel = VideoViewModel(this, video)
             loadVideo(video)
         }
@@ -210,7 +210,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                 fadeIn2Animator.startDelay = 150
                 val enterAnimatorSet = AnimatorSet()
                 enterAnimatorSet.addListener(object: AnimatorListenerAdapter() {
-                    override fun onAnimationStart(animation: Animator?) {
+                    override fun onAnimationStart(animation: Animator) {
                         binding.tab.alpha = 0f
                     }
                 })

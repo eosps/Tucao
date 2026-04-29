@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="网站设置">
+        <EditTextPreference
+            android:title="网站地址"
+            android:key="base_url"
+            android:dialogTitle="输入网站域名"
+            android:summary="当前网站域名，修改后需重启应用生效" />
+    </PreferenceCategory>
+</PreferenceScreen>

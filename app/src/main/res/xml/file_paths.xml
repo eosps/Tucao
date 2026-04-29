@@ -4,4 +4,6 @@
     <files-path name="file_path" path="/" />
     <root-path  name="camera_photos" path="" />
     <external-path name="image_path " path="Android/data/me.sweetll.tucao/files/Pictures" />
+    <!-- 下载视频缓存目录，用于 FileProvider 分享视频文件 -->
+    <external-path name="download_path" path="Download/me.sweetll.tucao" />
 </paths>

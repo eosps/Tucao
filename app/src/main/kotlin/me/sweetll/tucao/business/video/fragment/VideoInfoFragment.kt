@@ -44,6 +44,7 @@ class VideoInfoFragment: BaseFragment() {
         }
         viewModel = VideoInfoViewModel(this)
         binding.viewModel = viewModel
+        binding.user = viewModel.user
         return binding.root
     }
 

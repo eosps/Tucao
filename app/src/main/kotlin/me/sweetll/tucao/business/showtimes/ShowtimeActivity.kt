@@ -9,7 +9,7 @@ import androidx.appcompat.widget.Toolbar
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemClickListener
 import me.sweetll.tucao.R
@@ -48,11 +48,8 @@ class ShowtimeActivity : BaseActivity() {
         binding.indicatorFrame.viewTreeObserver.addOnGlobalLayoutListener( object: ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 binding.indicatorFrame.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+8"))
-                calendar.timeZone = TimeZone.getTimeZone("Asia/Shanghai")
-                var dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 2
-                if (dayOfWeek < 0) dayOfWeek = 6
-                val targetView = binding.weekLinear.getChildAt(dayOfWeek)
+                // 默认选中"今"标签（第一个子视图）
+                val targetView = binding.weekLinear.getChildAt(0)
                 moveIndicatorView(targetView)
             }
         })
@@ -61,10 +58,15 @@ class ShowtimeActivity : BaseActivity() {
     }
 
     fun setupRecyclerView() {
-        // Bug: code.google.com/p/android/issues/detail?id=230295
-        val staggeredLayoutManager = StaggeredGridLayoutManager(3, StaggeredGridLayoutManager.VERTICAL)
-        staggeredLayoutManager.isItemPrefetchEnabled = false
-        binding.showtimeRecycler.layoutManager = staggeredLayoutManager
+        // 使用 GridLayoutManager 替代 StaggeredGridLayoutManager，让 header 跨全宽
+        val gridLayoutManager = GridLayoutManager(this, 3)
+        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int): Int {
+                // header 占满整行（3列），普通 item 占 1 列
+                return if (showtimeAdapter.data.size > position && showtimeAdapter.getItem(position)?.isHeader == true) 3 else 1
+            }
+        }
+        binding.showtimeRecycler.layoutManager = gridLayoutManager
         binding.showtimeRecycler.adapter = showtimeAdapter
 
         binding.showtimeRecycler.addOnItemTouchListener(object: OnItemClickListener() {
@@ -128,9 +130,8 @@ class ShowtimeActivity : BaseActivity() {
             }
         }
 
-        var dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 2
-        if (dayOfWeek < 0) dayOfWeek = 6
-        showWeek(dayOfWeek)
+        // 默认滚动到"今天更新"
+        showWeek(0)
 
         binding.indicatorFrame.visibility = View.VISIBLE
     }

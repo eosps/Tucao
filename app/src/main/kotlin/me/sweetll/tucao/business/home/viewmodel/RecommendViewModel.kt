@@ -12,7 +12,7 @@ import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.model.raw.Banner
 import me.sweetll.tucao.model.raw.Index
 import me.sweetll.tucao.util.parseBanner
-import me.sweetll.tucao.util.parseChannelList
+import me.sweetll.tucao.util.parseChannelListFromSiblings
 import me.sweetll.tucao.util.parseListVideo
 import org.jsoup.nodes.Document
 
@@ -49,15 +49,21 @@ class RecommendViewModel(val fragment: RecommendFragment): BaseViewModel() {
     }
 
     fun parseRecommends(doc: Document): List<Pair<Channel, List<Video>>> {
-        val listParentNode = doc.getElementsByClass("list loop_list24").first().parent()
-        val recommends = parseChannelList(listParentNode).toMutableList()
+        val recommends = mutableListOf<Pair<Channel, List<Video>>>()
 
-        //解析今日推荐
-        val channel = Channel(0, "今日推荐")
+        // 解析"今天推荐"（list8 区域）
         val list8 = doc.getElementsByClass("list list8").first()
-        val videos = parseListVideo(list8)
-        recommends.add(0, channel to videos.subList(0,4))
-//        recommends.add(1, channel to videos.subList(4,8))
+        if (list8 != null) {
+            val channel = Channel(0, "今天推荐")
+            val videos = parseListVideo(list8)
+            if (videos.isNotEmpty()) {
+                recommends.add(0, channel to videos.subList(0, minOf(4, videos.size)))
+            }
+        }
+
+        // 解析其他频道列表（title + list loop_listXX 成对出现）
+        val channelList = parseChannelListFromSiblings(doc.body())
+        recommends.addAll(channelList)
 
         return recommends
     }

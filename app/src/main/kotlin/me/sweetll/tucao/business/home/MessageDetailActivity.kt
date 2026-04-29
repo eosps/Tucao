@@ -39,9 +39,9 @@ class MessageDetailActivity: BaseActivity() {
     override fun initView(savedInstanceState: Bundle?) {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_message_detail)
         viewModel = MessageDetailViewModel(this,
-                intent.getStringExtra(ARG_ID),
-                intent.getStringExtra(ARG_USERNAME),
-                intent.getStringExtra(ARG_AVATAR))
+                intent.getStringExtra(ARG_ID) ?: "",
+                intent.getStringExtra(ARG_USERNAME) ?: "",
+                intent.getStringExtra(ARG_AVATAR) ?: "")
         binding.viewModel = viewModel
 
         adapter = MessageDetailAdapter(null)

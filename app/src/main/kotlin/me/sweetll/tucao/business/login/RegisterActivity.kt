@@ -71,11 +71,11 @@ class RegisterActivity : BaseActivity() {
         animator.interpolator = FastOutSlowInInterpolator()
         animator.duration = 300
         animator.addListener(object: AnimatorListenerAdapter() {
-            override fun onAnimationStart(animation: Animator?) {
+            override fun onAnimationStart(animation: Animator) {
                 binding.revealView.visibility = View.VISIBLE
             }
 
-            override fun onAnimationEnd(animation: Animator?) {
+            override fun onAnimationEnd(animation: Animator) {
                 finish()
                 overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             }

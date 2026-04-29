@@ -67,18 +67,7 @@ class AppApplication : MultiDexApplication(), HasAndroidInjector {
 
     private fun postUpdate() {
         if (UpdateHelpers.newVersion()) {
-            /*
-             * Do some processing to prevent crash due to incompatible old data model
-             */
-            try {
-                if (UpdateHelpers.needClearUserData()) {
-                    UpdateHelpers.clearUserData()
-                }
-            } catch (error: Error) {
-                error.printStackTrace()
-            } finally {
-                UpdateHelpers.updateVersion()
-            }
+            UpdateHelpers.updateVersion()
         }
     }
 

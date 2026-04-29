@@ -39,20 +39,31 @@ class MessageDetailViewModel(val activity: MessageDetailActivity, val id: String
     }
 
     fun parseMessageDetail(doc: Document): MutableList<MessageDetail> {
-        val table_right = doc.selectFirst("td.tableright")
-        val divs = table_right.child(3).children()
-
+        // 新版网站结构：div.mread > div.item（排除 div.mform 回复表单）
+        val items = doc.select("div.mread > div.item")
         val res = mutableListOf<MessageDetail>()
 
-        for (index in 0 until divs.size / 3) {
-            val div1 = divs[3 * index]
-            val div2 = divs[3 * index + 1]
+        // 当前用户的 uid，用于区分左右消息
+        val myUid = user.uid
 
-            val class_name = div1.className()
-            val type = if ("userpicr" in class_name) MessageDetail.TYPE_RIGHT else MessageDetail.TYPE_LEFT
-            val message = div2.ownText().trim()
-            val time = div2.selectFirst("div.time").text()
-            val avatar = if (type == MessageDetail.TYPE_LEFT) _avatar else user.avatar
+        for (item in items) {
+            // 获取发送者 uid：div.l a href="/play/u{uid}/"
+            val senderLink = item.selectFirst("div.l a")
+            val senderHref = senderLink?.attr("href") ?: ""
+            val uidMatch = "/play/u(\\d+)/".toRegex().find(senderHref)
+            val senderUid = uidMatch?.groupValues?.get(1) ?: ""
+
+            // 判断消息方向：发送者 uid 与当前用户 uid 一致则为右侧（自己发的）
+            val type = if (senderUid == myUid) MessageDetail.TYPE_RIGHT else MessageDetail.TYPE_LEFT
+
+            // 消息内容：div.r div.c
+            val message = item.selectFirst("div.r div.c")?.text()?.trim() ?: ""
+
+            // 时间：div.r div.t
+            val time = item.selectFirst("div.r div.t")?.text()?.trim() ?: ""
+
+            // 头像：根据方向选择
+            val avatar = if (type == MessageDetail.TYPE_RIGHT) user.avatar else _avatar
 
             res.add(MessageDetail(avatar, message, time, type))
         }
