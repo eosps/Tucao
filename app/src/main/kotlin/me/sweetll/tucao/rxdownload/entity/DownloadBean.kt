@@ -21,7 +21,7 @@ data class DownloadBean(
     @Transient var request: Disposable? = null
 
     fun cancelIfConnecting() {
-        if (connecting) request?.dispose()
+        request?.dispose()
     }
 
     fun getRange(): String = "bytes=$downloadLength-"

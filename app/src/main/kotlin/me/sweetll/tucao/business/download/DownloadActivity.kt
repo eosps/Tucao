@@ -114,9 +114,9 @@ class DownloadActivity : BaseActivity() {
         binding.pickAllBtn.setOnClickListener {
             val isPickAll = currentContextMenuCallback?.onClickPickAll() ?: false
             if (isPickAll) {
-                binding.pickAllBtn.text = "取消全选"
+                binding.pickAllBtn.text = "取消\n全选"
             } else {
-                binding.pickAllBtn.text = "选择全部"
+                binding.pickAllBtn.text = "选择\n全部"
             }
         }
         if (showUpdate) {
@@ -150,9 +150,9 @@ class DownloadActivity : BaseActivity() {
         binding.exportBtn.isEnabled = deleteEnabled
         binding.shareBtn.isEnabled = deleteEnabled
         if (isPickAll) {
-            binding.pickAllBtn.text = "取消全选"
+            binding.pickAllBtn.text = "取消\n全选"
         } else {
-            binding.pickAllBtn.text = "选择全部"
+            binding.pickAllBtn.text = "选择\n全部"
         }
     }
 

@@ -54,6 +54,9 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
                     return
                 }
                 (activity as DownloadActivity).openContextMenu(this@DownloadedFragment, true)
+                // 底部栏高度 45dp，给 RecyclerView 加底部 padding 防止遮挡
+                val bottomPadding = (56 * resources.displayMetrics.density).toInt()
+                binding.videoRecycler.setPadding(0, 0, 0, bottomPadding)
                 videoAdapter.data.forEach {
                     when (it) {
                         is Video -> {
@@ -91,6 +94,8 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
     }
 
     override fun onDestroyContextMenu() {
+        // 移除底部 padding
+        binding.videoRecycler.setPadding(0, 0, 0, 0)
         videoAdapter.data.forEach {
             when (it) {
                 is Video -> {
@@ -223,7 +228,7 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
     }
 
     /**
-     * 导出：合并每个选中 Part 为单文件后保存到系统 Downloads 目录
+     * 导出：合并每个选中 Part 为单文件后保存到系统 Downloads 目录，带进度显示
      */
     override fun onClickExport() {
         val selected = collectSelectedParts()
@@ -232,15 +237,36 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
             return
         }
 
-        "正在导出视频...".toast()
+        // 创建进度对话框
+        val progressDialog = android.app.ProgressDialog(activity).apply {
+            setTitle("导出视频")
+            setMessage("正在准备...")
+            setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL)
+            max = selected.size
+            progress = 0
+            setCancelable(false)
+        }
+        progressDialog.show()
 
         io.reactivex.Single.fromCallable {
-            selected.mapNotNull { (part, title) ->
-                DownloadHelpers.exportPartToDownloads(part, title)
+            val files = mutableListOf<File>()
+            selected.forEachIndexed { index, (part, title) ->
+                val name = "${title}_${part.title}"
+                // 在主线程更新进度
+                activity?.runOnUiThread {
+                    progressDialog.setMessage("正在导出 (${index + 1}/${selected.size}): $name")
+                    progressDialog.progress = index
+                }
+                DownloadHelpers.exportPartToDownloads(part, title)?.let { files.add(it) }
             }
+            activity?.runOnUiThread {
+                progressDialog.progress = selected.size
+            }
+            files
         }.subscribeOn(io.reactivex.schedulers.Schedulers.io())
                 .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
                 .subscribe({ files ->
+                    progressDialog.dismiss()
                     if (files.isEmpty()) {
                         "未找到可导出的视频文件".toast()
                         return@subscribe
@@ -252,6 +278,7 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
                     }
                     "已导出 ${files.size} 个视频到 Download 目录".toast()
                 }, { error ->
+                    progressDialog.dismiss()
                     error.printStackTrace()
                     "导出视频失败".toast()
                 })

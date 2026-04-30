@@ -50,6 +50,9 @@ class DownloadingFragment: BaseFragment(), DownloadActivity.ContextMenuCallback 
                     return
                 }
                 (activity as DownloadActivity).openContextMenu(this@DownloadingFragment, false)
+                // 底部栏高度 45dp，给 RecyclerView 加底部 padding 防止遮挡
+                val bottomPadding = (56 * resources.displayMetrics.density).toInt()
+                binding.videoRecycler.setPadding(0, 0, 0, bottomPadding)
                 videoAdapter.data.forEach {
                     when (it) {
                         is Video -> {
@@ -87,6 +90,8 @@ class DownloadingFragment: BaseFragment(), DownloadActivity.ContextMenuCallback 
     }
 
     override fun onDestroyContextMenu() {
+        // 移除底部 padding
+        binding.videoRecycler.setPadding(0, 0, 0, 0)
         videoAdapter.data.forEach {
             when (it) {
                 is Video -> {

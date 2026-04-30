@@ -48,10 +48,12 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
 
                 helper.setGone(R.id.checkbox, video.checkable)
                 val checkBox = helper.getView<CheckBox>(R.id.checkbox)
+                checkBox.setOnCheckedChangeListener(null)
                 checkBox.isChecked = video.checked
                 checkBox.setOnCheckedChangeListener {
                     _, checked ->
                     video.checked = checked
+                    video.subItems.forEach { it.checked = checked }
                     updateMenu()
                 }
 
@@ -104,6 +106,7 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
 
                 helper.setGone(R.id.checkbox, part.checkable)
                 val checkBox = helper.getView<CheckBox>(R.id.checkbox)
+                checkBox.setOnCheckedChangeListener(null)
                 checkBox.isChecked = part.checked
                 checkBox.setOnCheckedChangeListener {
                     _, checked ->

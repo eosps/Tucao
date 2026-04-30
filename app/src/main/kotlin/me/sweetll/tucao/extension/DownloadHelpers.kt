@@ -388,8 +388,9 @@ object DownloadHelpers {
                 .sortedBy { it.order }
         if (durls.isEmpty()) return null
 
-        // 构建输出文件名：标题_集名.mp4
-        val safeName = (videoTitle + "_" + part.title)
+        // 构建输出文件名：标题_集名.mp4（集名为空时用 P+序号代替）
+        val partName = if (part.title.isNotEmpty()) part.title else "P${part.order}"
+        val safeName = (videoTitle + "_" + partName)
                 .replace(Regex("[\\\\/:*?\"<>|]"), "_")
                 .trim()
         val outputFile = File(outputDir, "$safeName.mp4")
@@ -441,7 +442,11 @@ object DownloadHelpers {
     fun exportPartToDownloads(part: Part, videoTitle: String): File? {
         val downloadsDir = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)
         if (!downloadsDir.exists()) downloadsDir.mkdirs()
-        return mergePartFiles(part, videoTitle, downloadsDir)
+        // 为每个视频创建以标题命名的子文件夹
+        val safeTitle = videoTitle.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+        val videoDir = File(downloadsDir, safeTitle)
+        if (!videoDir.exists()) videoDir.mkdirs()
+        return mergePartFiles(part, videoTitle, videoDir)
     }
 
     private val PREF_BACKUP_PATH = "backup_path"

@@ -61,7 +61,7 @@ class DownloadService : Service() {
     @Inject
     lateinit var downloadApi: DownloadApi
 
-    var semaphore: Semaphore = Semaphore(1) // 同时只允许1个任务下载
+    var semaphore: Semaphore = Semaphore(3) // 同时允许3个任务下载
 
     val missionMap: ArrayMap<String, DownloadMission> = ArrayMap()
     val processorMap: ArrayMap<String, BehaviorProcessor<DownloadEvent>> = ArrayMap()
@@ -204,6 +204,8 @@ class DownloadService : Service() {
                         durl ->
                         mission.beans.add(DownloadBean(durl.url, saveName = "${durl.order}", savePath = "${DownloadHelpers.getDownloadFolder().absolutePath}/${mission.hid}/p${mission.order}"))
                     }
+                    // 获取到下载地址后立即保存到数据库，防止 Service 被杀后丢失
+                    mission.exec { update(mission) }
                     doDownload(mission, processor)
                 }, {
                     error ->
@@ -296,8 +298,11 @@ class DownloadService : Service() {
                                 }
                             }
                         } catch (error: Exception) {
-                            error.printStackTrace()
-                            processor.onNext(DownloadEvent(DownloadStatus.FAILED))
+                            if (!mission.pause) {
+                                // 非暂停导致的异常才报错
+                                error.printStackTrace()
+                                processor.onNext(DownloadEvent(DownloadStatus.FAILED))
+                            }
                         }
                     }, {
                         error ->
@@ -392,15 +397,23 @@ class DownloadService : Service() {
     }
 
     fun receive(vid: String): BehaviorProcessor<DownloadEvent> {
-        val processor = processorMap[vid]!! // 可能不存在吗？
-        return processor
+        // 如果 processor 不存在（Service 重启、旧任务等），自动创建一个 PAUSED 状态的
+        return processorMap.getOrPut(vid) {
+            BehaviorProcessor.create<DownloadEvent>().apply {
+                onNext(DownloadEvent(DownloadStatus.PAUSED))
+            }
+        }
     }
 
     private fun consumeEvent(mission: DownloadMission, event: DownloadEvent, part: Part) {
         when (event.status) {
             DownloadStatus.PAUSED -> {
                 mission.exec { update(mission) }
-                stopForeground(true)
+                // 仅当没有其他任务在下载时才停止前台服务
+                val hasActiveDownloads = missionMap.values.any { !it.pause }
+                if (!hasActiveDownloads) {
+                    stopForeground(true)
+                }
             }
             DownloadStatus.FAILED -> {
                 mission.pause = true
