@@ -13,7 +13,6 @@ import android.os.SystemClock
 import com.google.android.material.tabs.TabLayout
 import androidx.viewpager.widget.ViewPager
 import android.util.AttributeSet
-import android.util.Log
 import android.view.*
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
@@ -290,7 +289,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                 }
                 innerPreviewLayout.addView(previewImageView)
-                Log.d("Preview", "预览框初始化完成 pfl=${previewFrameLayout != null} img=${previewImageView != null}")
             }
 
         }
@@ -351,12 +349,10 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
                 val child = pfl.getChildAt(i)
                 if (child !is FrameLayout) {
                     pfl.removeViewAt(i)
-                    Log.d("Preview", "移除遮挡层: ${child.javaClass.simpleName}")
                 }
             }
             pfl.visibility = View.VISIBLE
             pfl.alpha = 1f
-            Log.d("Preview", "onStart frames=${previewFrames.size} vis=${pfl.visibility} w=${pfl.width} h=${pfl.height}")
         }
     }
 
@@ -381,7 +377,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
 
     override fun onStopTrackingTouch(seekBar: SeekBar?) {
         super.onStopTrackingTouch(seekBar)
-        Log.d("Preview", "onStopTrackingTouch")
         previewFrameLayout?.let {
             it.visibility = View.INVISIBLE
             it.translationX = 0f
@@ -685,8 +680,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
         }
         nearest?.value?.let { bitmap ->
             previewImageView?.setImageBitmap(bitmap)
-            Log.d("Preview", "showNearest target=$targetTimeMs nearest=${nearest.key} " +
-                    "bitmap=${bitmap.width}x${bitmap.height} recycled=${bitmap.isRecycled}")
         }
     }
 
@@ -700,12 +693,9 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
             val bitmap = textureView?.getBitmap(PREVIEW_FRAME_WIDTH, PREVIEW_FRAME_HEIGHT)
             if (bitmap != null) {
                 previewFrames[timeMs] = bitmap
-                Log.d("Preview", "captureCurrentFrame time=$timeMs success total=${previewFrames.size}")
             } else {
-                Log.d("Preview", "captureCurrentFrame time=$timeMs bitmap=null textureView=${textureView != null}")
             }
         } catch (e: Exception) {
-            Log.d("Preview", "captureCurrentFrame time=$timeMs error=${e.message}")
         }
     }
 
@@ -732,12 +722,10 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
         // 立即截取当前帧作为初始预览（onPrepared 时视频首帧已渲染）
         captureCurrentFrame(0L)
         lastCaptureTimeMs = 0L
-        Log.d("Preview", "startPreviewExtraction url=$mOriginUrl frames=${previewFrames.size}")
 
         val url = mOriginUrl ?: return
         // 仅对本地文件使用 MediaMetadataRetriever（在线视频不支持 seek 预览）
         if (!url.startsWith("file://") && !url.startsWith("/")) {
-            Log.d("Preview", "非本地文件，跳过 MediaMetadataRetriever")
             return
         }
 
@@ -773,7 +761,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe({ frames ->
-            Log.d("Preview", "MediaMetadataRetriever 提取完成 frames=${frames.size} 已有=${previewFrames.size}")
             if (frames.isNotEmpty()) {
                 // 合并：保留 TextureView 已有帧，MediaMetadataRetriever 帧只补充空缺位置
                 // 避免清空 TextureView 帧导致用户拖动时无帧可用
@@ -788,7 +775,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
                 }
             }
         }, { e ->
-            Log.d("Preview", "MediaMetadataRetriever 失败: ${e.message}")
             // 预生成失败不影响播放，TextureView 截图仍在积累中
         })
     }
@@ -825,7 +811,6 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
 
     override fun onPrepared() {
         super.onPrepared()
-        Log.d("Preview", "onPrepared called")
         // 非全屏模式下保留状态栏，全屏模式由 startWindowFullscreen 自行处理
         // 初始化预览帧：截取首帧 + 后台尝试全片提取
         startPreviewExtraction()

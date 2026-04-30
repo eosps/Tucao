@@ -23,7 +23,6 @@ import me.sweetll.tucao.business.home.viewmodel.GameViewModel
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.databinding.FragmentGameBinding
 import me.sweetll.tucao.databinding.HeaderGameBinding
-import me.sweetll.tucao.extension.logD
 import me.sweetll.tucao.model.raw.Game
 
 class GameFragment : BaseFragment() {

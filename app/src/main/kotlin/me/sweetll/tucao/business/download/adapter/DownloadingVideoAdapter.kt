@@ -16,7 +16,6 @@ import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.load
-import me.sweetll.tucao.extension.logD
 import me.sweetll.tucao.extension.toast
 import me.sweetll.tucao.rxdownload.RxDownload
 import me.sweetll.tucao.rxdownload.entity.DownloadEvent
@@ -89,7 +88,6 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
                         .subscribe({
                             (status, downloadSize, totalSize) ->
 
-                            "接收下载状态....".logD()
 
                             val newEvent = DownloadEvent(status, downloadSize, totalSize)
 

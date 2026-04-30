@@ -25,7 +25,6 @@ import me.sweetll.tucao.business.home.event.RefreshPersonalEvent
 import me.sweetll.tucao.business.personal.PersonalActivity
 import me.sweetll.tucao.business.personal.viewmodel.PersonalViewModel
 import me.sweetll.tucao.databinding.FragmentPersonalBinding
-import me.sweetll.tucao.extension.logD
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode

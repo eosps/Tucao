@@ -13,7 +13,6 @@ import me.sweetll.tucao.business.home.event.RefreshPersonalEvent
 import me.sweetll.tucao.business.personal.PersonalActivity
 import me.sweetll.tucao.business.personal.fragment.PersonalFragment
 import me.sweetll.tucao.di.service.ApiConfig
-import me.sweetll.tucao.extension.logD
 import me.sweetll.tucao.extension.sanitizeHtml
 import me.sweetll.tucao.extension.toast
 import me.sweetll.tucao.model.other.User

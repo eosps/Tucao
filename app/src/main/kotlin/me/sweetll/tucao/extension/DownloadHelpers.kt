@@ -328,7 +328,6 @@ object DownloadHelpers {
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnComplete {
                     "更新弹幕成功".toast()
-                    "更新弹幕成功".logD()
                 }
                 .subscribe ({
                     // Do nothing

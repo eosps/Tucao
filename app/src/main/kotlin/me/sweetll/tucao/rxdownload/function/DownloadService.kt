@@ -9,7 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import android.util.Log
+
 import androidx.collection.ArrayMap
 import androidx.core.app.NotificationCompat
 import androidx.core.app.TaskStackBuilder
@@ -25,7 +25,6 @@ import me.sweetll.tucao.R
 import me.sweetll.tucao.business.download.DownloadActivity
 import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.formatWithUnit
-import me.sweetll.tucao.extension.logD
 import me.sweetll.tucao.model.json.Part
 import me.sweetll.tucao.model.xml.Durl
 import me.sweetll.tucao.rxdownload.db.TucaoDatabase
@@ -70,7 +69,6 @@ class DownloadService : Service() {
     val missionQueue = LinkedBlockingQueue<String>()
 
     override fun onDestroy() {
-        Log.d("DownloadService", "On Destroy")
         super.onDestroy()
     }
 
@@ -79,7 +77,6 @@ class DownloadService : Service() {
     }
 
     override fun onCreate() {
-        Log.d("DownloadService", "On Create")
         super.onCreate()
         binder = DownloadBinder()
 
@@ -94,7 +91,6 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("DownloadService", "On Start Command")
         // 确保前台通知已创建（onCreate 可能已调用，但 onStartCommand 也会被触发）
         startForeground(ONGOING_NOTIFICATION_ID, buildPlaceholderNotification())
 
@@ -424,7 +420,6 @@ class DownloadService : Service() {
     }
 
     private fun sendNotification(mission: DownloadMission, event: DownloadEvent) {
-        "Send Notification ${event.status}...".logD()
         when (event.status) {
             DownloadStatus.OBTAIN_URL, DownloadStatus.CONNECTING, DownloadStatus.STARTED -> {
                 val nfIntent = Intent(this, DownloadActivity::class.java)
