@@ -13,7 +13,7 @@ import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import com.orhanobut.dialogplus.DialogPlus
 import com.orhanobut.dialogplus.ViewHolder
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import me.sweetll.tucao.utils.PlayerConfig
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseFragment
 import me.sweetll.tucao.widget.BubbleSeekBar
@@ -90,10 +90,11 @@ class SettingPlayViewFactory() {
                 codecHelpDialog.show()
             }
 
-            rotateSwitch.isChecked = player.getOrientationUtils().currentScreenType != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            // v11 OrientationUtils: 用 screenType 替代 currentScreenType, 用 resolveByClick 替代 toggleLandReverse
+            rotateSwitch.isChecked = player.getOrientationUtils().screenType != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             rotateSwitch.setOnCheckedChangeListener {
                 _, _ ->
-                player.getOrientationUtils().toggleLandReverse()
+                player.getOrientationUtils().resolveByClick()
             }
 
             return view

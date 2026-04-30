@@ -11,8 +11,7 @@
         <me.sweetll.tucao.widget.DanmuVideoPlayer
             android:id="@+id/player"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:full_mode="true"/>
+            android:layout_height="match_parent" />
 
     </LinearLayout>
 </layout>

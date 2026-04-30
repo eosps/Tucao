@@ -11,6 +11,18 @@
             type="me.sweetll.tucao.business.video.viewmodel.VideoViewModel" />
     </data>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 状态栏占位，高度由 BaseActivity.initStatusBar() 动态设置，将内容推到状态栏下方 -->
+        <View
+            android:id="@+id/statusBar"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="@color/colorPrimaryDark" />
+
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/activity_video"
         android:layout_width="match_parent"
@@ -19,8 +31,7 @@
         <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appBar"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:fitsSystemWindows="true">
+            android:layout_height="wrap_content">
 
             <com.google.android.material.appbar.CollapsingToolbarLayout
                 android:layout_width="match_parent"
@@ -34,14 +45,13 @@
                     android:id="@+id/playerFrame"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fitsSystemWindows="true"
                     app:layout_collapseMode="parallax"
                     app:layout_collapseParallaxMultiplier="0.7">
 
                     <me.sweetll.tucao.widget.DanmuVideoPlayer
                         android:id="@+id/player"
                         android:layout_width="match_parent"
-                        android:layout_height="200dp"
+                        android:layout_height="wrap_content"
                         android:visibility="visible"
                         tools:visibility="visible" />
 
@@ -138,4 +148,6 @@
             <!--app:backgroundTint="@color/pink_300"-->
             <!--app:fabSize="normal" />-->
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    </LinearLayout>
 </layout>

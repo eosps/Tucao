@@ -18,6 +18,9 @@ import me.sweetll.tucao.model.xml.Durl
 import me.sweetll.tucao.rxdownload.entity.DownloadStatus
 import java.io.File
 import java.io.FileOutputStream
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
     val video = ObservableField<Video>()
@@ -26,6 +29,62 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
     var danmuDisposable: Disposable? = null
 
     var currentPlayerId: String? = null
+
+    /**
+     * 用于解析视频 URL 重定向的 HTTP 客户端
+     * SharePoint 等服务的下载链接通过 HTTP 重定向到 CDN 直链
+     * ExoPlayer 不如 FFmpeg 容错，需要预先解析重定向获取最终 URL
+     */
+    private val urlResolveClient = OkHttpClient.Builder()
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+
+    /**
+     * 解析视频 URL 的 HTTP 重定向链，获取最终直链
+     *
+     * SharePoint 链接特殊处理：跳过预解析，只修复旧版 URL 格式
+     * 原因：OkHttp 预解析会跟随重定向到 Microsoft OAuth2 登录页，
+     * 导致 ExoPlayer 收到 HTML 页面而非视频流。
+     * 直接传原始链接给 ExoPlayer + 完整浏览器 UA 可能避免触发 OAuth2。
+     *
+     * 其他 URL：正常解析重定向，但检测到认证页面时回退到原始 URL。
+     */
+    private fun resolveVideoUrl(url: String): String {
+        // 本地文件路径不需要解析
+        if (url.startsWith("/") || url.startsWith("file://")) {
+            return url
+        }
+
+        // SharePoint 链接：只修复旧版 _layouts/52/ 格式，不进行预解析
+        if (url.contains("sharepoint.com")) {
+            return url.replace("_layouts/52/", "_layouts/15/")
+        }
+
+        // 其他 URL：解析 HTTP 重定向获取最终直链
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", ApiConfig.CHROME_USER_AGENT)
+                .build()
+            val response = urlResolveClient.newCall(request).execute()
+            val resolvedUrl = response.request.url.toString()
+            val contentType = response.header("Content-Type", "unknown")
+            response.body?.close()
+            response.close()
+
+            // 如果重定向到了登录/认证页面，回退使用原始 URL
+            if (resolvedUrl.contains("login.") || resolvedUrl.contains("oauth2")) {
+                url
+            } else {
+                resolvedUrl
+            }
+        } catch (e: Exception) {
+            url
+        }
+    }
 
     constructor(activity: VideoActivity, video: Video) : this(activity) {
         this.video.set(video)
@@ -61,8 +120,27 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
             activity.loadDurls(part.durls)
         } else if (part.file.isNotEmpty()) {
             if ("clicli" !in part.file) {
-                // 这个视频是直传的
-                activity.loadDurls(mutableListOf(Durl(url = part.file)))
+                if (part.file.contains("sharepoint.com")) {
+                    // SharePoint 链接：API 可能把 share= 后面的 token 截断了
+                    val fixedUrl = part.file.replace("_layouts/52/", "_layouts/15/")
+                    if (!fixedUrl.contains("share=")) {
+                        // URL 被截断（缺少 share=TOKEN），从网页 HTML 中恢复完整 URL
+                        recoverSharePointUrl(hid, fixedUrl, part.order)
+                    } else {
+                        activity.loadDurls(mutableListOf(Durl(url = fixedUrl)))
+                    }
+                } else {
+                    // 非 SharePoint 链接，正常解析重定向
+                    playUrlDisposable = Observable.fromCallable { resolveVideoUrl(part.file) }
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe({ resolvedUrl ->
+                            activity.loadDurls(mutableListOf(Durl(url = resolvedUrl)))
+                        }, { error ->
+                            error.printStackTrace()
+                            activity.loadDurls(mutableListOf(Durl(url = part.file)))
+                        })
+                }
             } else {
                 // 这个视频来自clicli
                 playUrlDisposable = jsonApiService.clicli(part.file)
@@ -76,6 +154,7 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
                                 Observable.error(Throwable("请求视频接口出错"))
                             }
                         }
+                        .map { url -> resolveVideoUrl(url) }
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
                             url ->
@@ -96,6 +175,10 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
                     .flatMap {
                         response ->
                         if (response.durls.isNotEmpty()) {
+                            // 解析每个视频 URL 的 HTTP 重定向
+                            response.durls.forEach { durl ->
+                                durl.url = resolveVideoUrl(durl.url)
+                            }
                             Observable.just(response.durls)
                         } else {
                             Observable.error(Throwable("请求视频接口出错"))
@@ -151,5 +234,55 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
                         // 发送成功
                     }, Throwable::printStackTrace)
         }
+    }
+
+    /**
+     * 从网页 HTML 中恢复被 API 截断的 SharePoint 分享链接
+     * API 返回: ...?share（缺少 =TOKEN）
+     * 网页源码格式: <li>type=video&file=URL1|**type=video&file=URL2|**...</li>
+     * 按 partOrder 选择对应集数的 URL
+     */
+    private fun recoverSharePointUrl(hid: String, truncatedUrl: String, partOrder: Int) {
+        val baseUrl = ApiConfig.getBaseUrl()
+        val playPageUrl = "https://$baseUrl/play/h$hid/"
+
+        playUrlDisposable = rawApiService.playPage(playPageUrl)
+                .subscribeOn(Schedulers.io())
+                .map { responseBody ->
+                    val html = responseBody.string()
+
+                    // 从 <ul id="player_code"> 的第一个 <li> 中提取视频列表
+                    val liRegex = Regex("""<ul[^>]*id="player_code"[^>]*>\s*<li>(.*?)</li>""", RegexOption.DOT_MATCHES_ALL)
+                    val liMatch = liRegex.find(html)
+                    if (liMatch == null) {
+                        return@map truncatedUrl
+                    }
+
+                    val liContent = liMatch.groupValues[1]
+
+                    // 按 |** 分隔符拆分各集视频信息
+                    val entries = liContent.split("|**")
+
+                    if (partOrder >= entries.size || partOrder < 0) {
+                        return@map truncatedUrl
+                    }
+
+                    // 从选中的条目中提取 file= 参数值（即视频URL）
+                    val entry = entries[partOrder]
+                    val fileRegex = Regex("""file=(https?://.+)$""")
+                    val fileMatch = fileRegex.find(entry)
+                    if (fileMatch != null) {
+                        fileMatch.groupValues[1].replace("_layouts/52/", "_layouts/15/")
+                    } else {
+                        truncatedUrl
+                    }
+                }
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ url ->
+                    activity.loadDurls(mutableListOf(Durl(url = url)))
+                }, { error ->
+                    error.printStackTrace()
+                    activity.loadDurls(mutableListOf(Durl(url = truncatedUrl)))
+                })
     }
 }

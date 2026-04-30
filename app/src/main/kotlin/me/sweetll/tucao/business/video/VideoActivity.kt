@@ -14,21 +14,17 @@ import android.os.Bundle
 import androidx.core.view.ViewCompat
 import android.text.format.DateFormat
 import android.transition.*
-import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.Toolbar
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.google.android.material.appbar.AppBarLayout
-import com.shuyu.gsyvideoplayer.GSYPreViewManager
 import com.shuyu.gsyvideoplayer.GSYVideoManager
-import com.shuyu.gsyvideoplayer.GSYVideoPlayer
-import com.shuyu.gsyvideoplayer.model.VideoOptionModel
-import com.shuyu.gsyvideoplayer.utils.GSYVideoType
 import com.shuyu.gsyvideoplayer.utils.OrientationUtils
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import com.shuyu.gsyvideoplayer.video.base.GSYVideoView
 import com.shuyu.gsyvideoplayer.video.StandardGSYVideoPlayer
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
@@ -42,7 +38,6 @@ import me.sweetll.tucao.extension.*
 import me.sweetll.tucao.model.xml.Durl
 import me.sweetll.tucao.rxdownload.entity.DownloadStatus
 import me.sweetll.tucao.widget.DanmuVideoPlayer
-import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.*
 
 class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
@@ -63,6 +58,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
     var firstPlay = true
 
     override fun getToolbar(): Toolbar = binding.toolbar
+    override fun getStatusBar(): View = binding.statusBar
 
     companion object {
         private val ARG_VIDEO = "video"
@@ -97,11 +93,12 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
     }
 
     override fun initView(savedInstanceState: Bundle?) {
-        Log.d("FFF", "[debug video] onCreate")
-
         binding = DataBindingUtil.setContentView(this, R.layout.activity_video)
         val hid = intent.getStringExtra(ARG_HID)
         val cover = intent.getStringExtra(ARG_COVER)
+
+        // 默认按 16:9 比例设置播放器高度，视频加载后会按实际比例自适应
+        setPlayerHeightByRatio(16f / 9f)
 
         videoPagerAdapter = VideoPagerAdapter(supportFragmentManager)
         binding.viewPager.adapter = videoPagerAdapter
@@ -139,7 +136,8 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
         binding.viewModel = viewModel
 
-        orientationUtils = OrientationUtils(this)
+        // v11 的 OrientationUtils 需要传入 Activity 和 Player
+        orientationUtils = OrientationUtils(this, binding.player)
         binding.player.setOrientationUtils(orientationUtils)
 
         binding.playBtn.setOnClickListener {
@@ -255,53 +253,36 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
     }
 
     fun setupPlayer() {
-        GSYVideoManager.instance().optionModelList = mutableListOf(
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "safe", 0),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist", "concat,file,subfile,http,https,tls,rtp,tcp,udp,crypto,async"),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user_agent", "ijk"),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probesize", 102400),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "analyzeduration", 100),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "infbuf", 0),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-buffer-size", 15 * 1024 * 1024),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-fps", 30),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "r", "29.97"),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "async-forwards-capacity", 15 * 1024 * 1024),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "async-backwards-capacity", 15 * 1024 * 1024),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_CODEC,  "skip_loop_filter", 48),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_clear", 1),
-            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_timeout", -1)
-        )
-
         // 是否可以滑动界面改变进度，声音
         binding.player.setIsTouchWiget(true)
         //关闭自动旋转
-        binding.player.isLockLand = false
-        binding.player.isNeedLockFull = true
-        binding.player.isOpenPreView = true
-        binding.player.fullscreenButton.setOnClickListener {
+        binding.player.setLockLand(false)
+        binding.player.setNeedLockFull(true)
+        binding.player.getFullscreenButton().setOnClickListener {
             //直接横屏
-            orientationUtils.backToLand()
+            orientationUtils.resolveByClick()
         }
 
-        if (PlayerConfig.loadHardCodec()) {
-            GSYVideoType.enableMediaCodec() // 开启硬解
-        }
+        // ExoPlayer 自动处理硬解，无需手动设置 MediaCodec
 
-        binding.player.speed = 1f
+        binding.player.setSpeed(1f)
 
-        binding.player.setStandardVideoAllCallBack(object: StandardVideoAllCallBackAdapter() {
-            override fun onPrepared(url: String?) {
-                super.onPrepared(url)
+        binding.player.setVideoAllCallBack(object: StandardVideoAllCallBackAdapter() {
+            override fun onPrepared(url: String?, vararg objects: Any?) {
+                super.onPrepared(url, *objects)
                 binding.player.loadText?.let {
                     it.visibility = View.GONE
                 }
+                // 视频加载完毕，根据实际宽高比自适应播放器高度
+                val videoWidth = GSYVideoManager.instance().videoWidth
+                val videoHeight = GSYVideoManager.instance().videoHeight
+                if (videoWidth > 0 && videoHeight > 0) {
+                    setPlayerHeightByRatio(videoWidth.toFloat() / videoHeight.toFloat())
+                }
             }
 
-            override fun onClickStartIcon(url: String?) {
-                super.onClickStartIcon(url)
+            override fun onClickStartIcon(url: String?, vararg objects: Any?) {
+                super.onClickStartIcon(url, *objects)
                 isPlay = true
                 if (firstPlay) {
                     firstPlay = false
@@ -312,8 +293,8 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             }
 
             // 播放完了
-            override fun onAutoComplete(url: String?) {
-                super.onAutoComplete(url)
+            override fun onAutoComplete(url: String?, vararg objects: Any?) {
+                super.onAutoComplete(url, *objects)
                 isPlay = false
                 binding.player.onVideoPause(true, true)
             }
@@ -324,11 +305,20 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
         durls?.isNotEmpty().let {
             binding.player.loadText?.let {
                 it.text = it.text.replace("解析视频地址...".toRegex(), "解析视频地址...[完成]")
-                binding.player.startButton.visibility = View.VISIBLE
+                binding.player.getStartButton().visibility = View.VISIBLE
             }
             if (durls!!.size == 1) {
-                binding.player.setUp(if (selectedPart.flag == DownloadStatus.COMPLETED) durls[0].getCacheAbsolutePath() else durls[0].url)
+                val url = if (selectedPart.flag == DownloadStatus.COMPLETED) durls[0].getCacheAbsolutePath() else durls[0].url
+                binding.player.setUp(url, true, "")
             } else {
+                // 多段视频：已缓存时将 durl.url 更新为本地文件路径
+                if (selectedPart.flag == DownloadStatus.COMPLETED) {
+                    durls.forEach { durl ->
+                        if (durl.url.isEmpty() && durl.cacheFolderPath.isNotEmpty()) {
+                            durl.url = "file://${durl.cacheFolderPath}/${durl.cacheFileName}"
+                        }
+                    }
+                }
                 binding.player.setUp(durls, selectedPart.flag == DownloadStatus.COMPLETED)
             }
             firstPlay = true
@@ -344,7 +334,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
         this.selectedPart = selectedPart
         binding.player.onVideoPause()
         binding.player.loadText?.let {
-            binding.player.startButton.visibility = View.GONE
+            binding.player.getStartButton().visibility = View.GONE
             it.visibility = View.VISIBLE
             it.text = "播放器初始化...[完成]\n获取视频信息...[完成]\n解析视频地址...\n全舰弹幕装填..."
         }
@@ -357,39 +347,25 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onPause() {
         super.onPause()
-        Log.d("FFF", "[debug video] onPause")
         binding.player.onVideoPause(isPlay)
         isPause = true
     }
 
     override fun onResume() {
         super.onResume()
-        Log.d("FFF", "[debug video] onResume")
         binding.player.onVideoResume()
         isPause = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("FFF", "[debug video] onDestroy")
-        GSYVideoPlayer.releaseAllVideos()
-        GSYPreViewManager.instance().releaseMediaPlayer()
+        GSYVideoManager.releaseAllVideos()
         binding.player.onVideoDestroy()
     }
 
-    override fun onStart() {
-        super.onStart()
-        Log.d("FFF", "[debug video] onStart")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        Log.d("FFF", "[debug video] onStop")
-    }
-
     override fun onBackPressed() {
-        orientationUtils.backToPort()
-        if (StandardGSYVideoPlayer.backFromWindowFull(this)) {
+        orientationUtils.backToProtVideo()
+        if (GSYVideoManager.backFromWindowFull(this)) {
             return
         }
         super.onBackPressed()
@@ -397,7 +373,6 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        Log.d("FFF", "[debug video] onConfigurationChanged")
         if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
             if (!binding.player.isIfCurrentIsFullscreen) {
                 binding.player.startWindowFullscreen(this, true, true)
@@ -421,5 +396,25 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                             }.toMutableList()
                         }
         )
+    }
+
+    /**
+     * 根据视频宽高比自适应播放器容器高度
+     * - 默认 16:9，加载后按实际比例调整
+     * - 上限屏幕高度 45%（防止 4:3 等高视频挤压下方内容）
+     * - 下限屏幕高度 25%（防止超宽视频播放区过扁）
+     */
+    private fun setPlayerHeightByRatio(widthToHeightRatio: Float) {
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        // 按视频实际宽高比计算高度
+        var playerHeight = (screenWidth / widthToHeightRatio).toInt()
+        // 设置上下限保护下方内容区域
+        val maxHeight = screenHeight * 45 / 100
+        val minHeight = screenHeight * 25 / 100
+        playerHeight = playerHeight.coerceIn(minHeight, maxHeight)
+
+        binding.player.layoutParams.height = playerHeight
+        binding.playerFrame.layoutParams.height = playerHeight
     }
 }

@@ -14,6 +14,7 @@ import me.sweetll.tucao.business.video.CachedVideoActivity
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.extension.formatWithUnit
 import me.sweetll.tucao.extension.load
+import me.sweetll.tucao.extension.toast
 
 class DownloadedVideoAdapter(val downloadActivity: DownloadActivity, data: MutableList<MultiItemEntity>?) : BaseMultiItemQuickAdapter<MultiItemEntity, BaseViewHolder>(data) {
     companion object {
@@ -54,7 +55,10 @@ class DownloadedVideoAdapter(val downloadActivity: DownloadActivity, data: Mutab
                         }
                         updateMenu()
                     } else {
-                        if (video.singlePart) {
+                        // 根据实际已缓存的集数决定行为，而非依赖 API 返回的 part 字段
+                        if (video.subItems.isEmpty()) {
+                            "该视频无已缓存内容，请重新下载".toast()
+                        } else if (video.subItems.size == 1) {
                             CachedVideoActivity.intentTo(mContext, video)
                         } else {
                             if (video.isExpanded) {

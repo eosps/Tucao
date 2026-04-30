@@ -82,15 +82,26 @@ class VideoInfoFragment: BaseFragment() {
             }
         }
 
-        val downloadParts = DownloadHelpers.loadDownloadVideos()
-                .flatMap { it.parts }
+        // 按 hid 查找当前视频的下载记录，避免跨视频误匹配
+        val downloadVideo = DownloadHelpers.loadDownloadVideos()
+                .find { it.hid == video.hid }
+        val downloadParts = downloadVideo?.parts ?: emptyList()
         val videoHistory = HistoryHelpers.loadPlayHistory()
                 .find { it.hid == video.hid }
 
-        parts = video.parts.map {
-            part ->
-            // 替换成已经下载好的视频
-            downloadParts.find { it.vid == part.vid } ?: part
+        parts = video.parts.map { part ->
+            // 优先按 vid 匹配（正常下载流程 vid 一致）
+            // 其次按 order 匹配（文件扫描恢复的缓存 vid 格式为 "${hid}_$order"，与 API 不同）
+            val downloadPart = downloadParts.find { it.vid == part.vid }
+                    ?: downloadParts.find { it.order == part.order }
+            if (downloadPart != null) {
+                // 将缓存状态合并到 API 返回的 part 上（保留 API 的标题等字段）
+                part.flag = downloadPart.flag
+                part.durls = downloadPart.durls
+                part.downloadSize = downloadPart.downloadSize
+                part.totalSize = downloadPart.totalSize
+            }
+            part
         }.map {
             it.checked = false
             // 加载历史播放进度

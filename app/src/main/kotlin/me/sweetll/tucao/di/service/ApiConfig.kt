@@ -17,6 +17,10 @@ object ApiConfig {
     const val BASE_JSON_API_URL = "$PROTOCOL://$BASE_URL/api_v2/"
     const val BASE_XML_API_URL = "$PROTOCOL://$BASE_URL/"
 
+    // 完整的 Chrome Mobile User-Agent，用于 ExoPlayer 和 URL 解析
+    // SharePoint 等服务会检查 User-Agent，不完整的 UA 会触发 OAuth2 重定向
+    const val CHROME_USER_AGENT = "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
+
     /**
      * 从 SharedPreferences 读取用户配置的 BASE_URL
      * 默认返回 www.tucao.my
@@ -39,7 +43,7 @@ object ApiConfig {
     /*
      * XML
      */
-    const val PLAY_URL_API_URL = "$PROTOCOL://api.tucao.cool/api/playurl"
+    const val PLAY_URL_API_URL = "$PROTOCOL://$BASE_URL/api/playurl"
     const val DANMU_API_URL = "$PROTOCOL://$BASE_URL/index.php?m=mukio&c=index&a=init"
 
     /*

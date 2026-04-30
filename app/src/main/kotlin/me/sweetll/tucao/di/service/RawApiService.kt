@@ -59,6 +59,11 @@ interface RawApiService {
     fun sendComment(@Query("commentid") commentId: String,
                     @Field("content") content: String): Observable<ResponseBody>
 
+    // 获取视频播放页面 HTML（用于从网页中提取被 API 截断的完整 URL）
+    @GET
+    @Headers("Cookie: tucao_verify=ok")
+    fun playPage(@Url url: String): Observable<ResponseBody>
+
     @GET
     @Streaming
     fun download(@Url url: String): Observable<Response<ResponseBody>>

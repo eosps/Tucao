@@ -6,7 +6,11 @@ import android.content.Context
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.multidex.MultiDexApplication
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import me.sweetll.tucao.utils.PlayerConfig
+import com.shuyu.gsyvideoplayer.player.PlayerFactory
+import com.shuyu.gsyvideoplayer.cache.CacheFactory
+import tv.danmaku.ijk.media.exo2.Exo2PlayerManager
+import tv.danmaku.ijk.media.exo2.ExoPlayerCacheManager
 import com.umeng.analytics.MobclickAgent
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
@@ -59,6 +63,9 @@ class AppApplication : MultiDexApplication(), HasAndroidInjector {
 
         MobclickAgent.setScenarioType(this, MobclickAgent.EScenarioType.E_UM_NORMAL)
         PlayerConfig.init(this)
+        // 使用 ExoPlayer 作为播放引擎（替代 IJKPlayer）
+        PlayerFactory.setPlayManager(Exo2PlayerManager::class.java)
+        CacheFactory.setCacheManager(ExoPlayerCacheManager::class.java)
         initComponent()
         initChannel()
 

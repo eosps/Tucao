@@ -335,30 +335,57 @@ class VideoCommentsFragment: BaseFragment() {
         }
     }
 
+    /**
+     * 解析评论列表
+     * 新版 HTML 结构: div.clist > div.item（每个 item 包含 div.left + div.right）
+     * 第一个 item 可能是广告（包含外部链接），需要跳过
+     */
     private fun parseComments(doc: Document): List<Comment> {
         val comments = mutableListOf<Comment>()
 
-        val comment_trs = doc.select("table.comment_list>tbody>tr")
-        for (index in 0..comment_trs.size / 2 - 1) {
-            val tr1 = comment_trs[2 * index]
-            val tr2 = comment_trs[2 * index + 1]
+        // 选择所有评论项
+        val items = doc.select("div.clist > div.item")
+        for (item in items) {
+            // 跳过广告：广告项包含指向外部商城的链接
+            val adLink = item.select("a[href*='tmall.com'], a[href*='equity']").first()
+            if (adLink != null) continue
 
-            val td_user = tr1.child(0)
+            // 头像：div.left > a > img
+            val avatar = item.select("div.left img").first()?.attr("src") ?: ""
 
-            val avatar = td_user.child(0).child(0).attr("src")
-            val nickname = td_user.child(1).text()
-            val level = td_user.child(2).attr("class").substring(3)
+            // 等级：从 groupid 的 background-image URL 中提取数字
+            // 格式: background-image:url(/uploadfile/2023/0909/X.png)  其中 X 是等级
+            val groupidStyle = item.select("div.left .groupid").first()?.attr("style") ?: ""
+            val levelMatch = Regex("""/(\d+)\.png""").find(groupidStyle)
+            val level = levelMatch?.groupValues?.get(1) ?: "1"
 
-            val info = tr1.child(1).text()
+            // 昵称：div.cu > a 的文字（排除非链接的 span，如广告项）
+            val nickname = item.select("div.cu > a").firstOrNull()?.text() ?: ""
 
-            val lch = tr2.select("em.lch").first().text()
-            val time = tr2.select("em.time").first().text()
+            // 评论内容
+            val info = item.select("div.cc").first()?.text() ?: ""
 
-            val thumbUp = tr2.select("a.digg").first().child(0).text().toInt()
+            // 从 ct 区域提取信息，格式: "回复 赞 2026-04-27 16:53:23 · 20楼"
+            val ctText = item.select("div.ct").first()?.text() ?: ""
 
-            val commentId = tr2.select("a.digg>em").first().attr("id").substring(8)
+            // 楼层：从 ct 文本中提取 "X楼"
+            val lchMatch = Regex("""(\d+楼)""").find(ctText)
+            val lch = lchMatch?.groupValues?.get(1) ?: ""
 
-            val replyNum = tr2.select("div.replys").firstOrNull()?.attr("replys")?.toInt() ?: 0
+            // 时间：从 ct 文本中提取日期时间格式
+            val timeMatch = Regex("""(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})""").find(ctText)
+            val time = timeMatch?.groupValues?.get(1) ?: ""
+
+            // 点赞数：从 support_XXX 的 <u> 标签提取
+            val supportElement = item.select("u[id^=support_]").first()
+            val thumbUp = supportElement?.text()?.toIntOrNull() ?: 0
+
+            // 评论 ID：从 support 链接的 onclick 中提取，或从 <u> 的 id 属性
+            // id 格式: support_XXXXX
+            val commentId = supportElement?.attr("id")?.removePrefix("support_") ?: ""
+
+            // 回复数
+            val replyNum = item.select("div.replys").firstOrNull()?.attr("replys")?.toIntOrNull() ?: 0
 
             val comment = Comment(avatar, level, nickname, thumbUp, lch, time, info, commentId, replyNum)
             comments.add(comment)
@@ -367,15 +394,30 @@ class VideoCommentsFragment: BaseFragment() {
         return comments
     }
 
+    /**
+     * 解析最大页数
+     * 新版评论系统不再使用 div.pages 分页，所有评论在同一页加载
+     * 从标题栏 "评论N条" 中提取总数来估算页数
+     */
     private fun parseMaxPage(doc: Document): Int {
+        // 新版没有分页控件，所有评论在一页显示
         val pages = doc.select("div.pages").first()
-        if (pages == null) {
-            return 1
-        } else {
+        if (pages != null) {
+            // 旧版分页逻辑（向后兼容）
             val a = pages.children()
-            val lastPageA = a[a.size - 2]
-            val maxPage = lastPageA.text().toInt()
-            return maxPage
+            if (a.size >= 2) {
+                return a[a.size - 2].text().toIntOrNull() ?: 1
+            }
         }
+
+        // 新版：从标题提取评论总数，按每页数量计算页数
+        // 标题格式: "评论53条"
+        val titleText = doc.select("div.title .t").first()?.text() ?: ""
+        val totalMatch = Regex("""评论(\d+)条""").find(titleText)
+        val total = totalMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        if (total == 0) return 1
+
+        // 每页约 20 条评论（排除广告）
+        return (total + pageSize - 1) / pageSize
     }
 }

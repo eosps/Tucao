@@ -13,17 +13,25 @@ import android.os.SystemClock
 import com.google.android.material.tabs.TabLayout
 import androidx.viewpager.widget.ViewPager
 import android.util.AttributeSet
+import android.util.Log
 import android.view.*
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+
+import io.reactivex.Observable
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 import com.shuyu.gsyvideoplayer.GSYVideoManager
-import com.shuyu.gsyvideoplayer.GSYVideoPlayer
 import com.shuyu.gsyvideoplayer.utils.CommonUtil
 import com.shuyu.gsyvideoplayer.utils.OrientationUtils
 
-import com.shuyu.gsyvideoplayer.video.PreviewGSYVideoPlayer
-import com.shuyu.gsyvideoplayer.video.GSYBaseVideoPlayer
+import com.shuyu.gsyvideoplayer.video.StandardGSYVideoPlayer
+import com.shuyu.gsyvideoplayer.video.base.GSYBaseVideoPlayer
+import com.shuyu.gsyvideoplayer.video.base.GSYVideoView
 import master.flame.danmaku.controller.DrawHandler
 import master.flame.danmaku.danmaku.loader.IllegalDataException
 import master.flame.danmaku.danmaku.loader.android.DanmakuLoaderFactory
@@ -35,15 +43,16 @@ import master.flame.danmaku.danmaku.parser.BaseDanmakuParser
 import master.flame.danmaku.ui.widget.DanmakuView
 
 import me.sweetll.tucao.R
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import me.sweetll.tucao.utils.PlayerConfig
 import me.sweetll.tucao.base.BaseActivity
 import me.sweetll.tucao.business.video.adapter.SettingPagerAdapter
 import me.sweetll.tucao.extension.dp2px
 import me.sweetll.tucao.extension.formatDanmuOpacityToFloat
 import me.sweetll.tucao.extension.formatDanmuSizeToFloat
 import me.sweetll.tucao.extension.formatDanmuSpeedToFloat
+import me.sweetll.tucao.di.service.ApiConfig
 
-class DanmuVideoPlayer : PreviewGSYVideoPlayer {
+class DanmuVideoPlayer : StandardGSYVideoPlayer {
     var loadText: TextView? = null
     var danmakuContext: DanmakuContext? = null
     var danmuUri: String? = null
@@ -73,8 +82,21 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     var needCorrectDanmu = false
     var isShowDanmu = true
 
+    // 进度条预览相关
+    private var previewImageView: ImageView? = null
+    private var previewFrameLayout: FrameLayout? = null  // PreviewSeekBarLayout 内置的预览框
+    private var previewDisposable: Disposable? = null
+    // 按时间戳存储预览帧：TextureView 截图（可靠）+ MediaMetadataRetriever（尽力而为）
+    private val previewFrames = java.util.TreeMap<Long, Bitmap>()
+    private var lastCaptureTimeMs = -10000L  // 上次截图时间，初始负值以立即触发首次截图
+
     companion object {
         const val TAP = 1
+        const val PREVIEW_FRAME_INTERVAL_MS = 10_000L  // MediaMetadataRetriever 每 10 秒提取一帧
+        const val PREVIEW_FRAME_MAX = 200               // 最大帧数（防止长视频占用过多内存）
+        const val PREVIEW_CAPTURE_INTERVAL = 3000L      // TextureView 播放中截图间隔（毫秒）
+        const val PREVIEW_FRAME_WIDTH = 160             // 预览帧宽度（像素）
+        const val PREVIEW_FRAME_HEIGHT = 90             // 预览帧高度（像素）
 
         const val DOUBLE_TAP_TIMEOUT = 250L
         const val DOUBLE_TAP_MIN_TIME = 40L
@@ -158,7 +180,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         val seconds: Int = position / 1000 % 60
         jumpTimeText.text = "记忆您上次播放到%d:%02d".format(minute, seconds)
         jumpText.setOnClickListener {
-            GSYVideoManager.instance().mediaPlayer.seekTo(position.toLong())
+            GSYVideoManager.instance().seekTo(position.toLong())
             hideJump()
         }
         jumpLinear.animate()
@@ -257,6 +279,20 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                 hideSoftKeyBoard()
             }
 
+            // 进度条拖动预览：使用 PreviewSeekBarLayout 内置的预览框
+            // previewFrameLayout 是外层带边框的 FrameLayout（id=previewFrameLayout）
+            // preview_layout 是内层放置预览图的 FrameLayout
+            previewFrameLayout = findViewById(R.id.previewFrameLayout)
+            val innerPreviewLayout: FrameLayout? = findViewById(R.id.preview_layout)
+            if (innerPreviewLayout != null && previewFrameLayout != null) {
+                previewImageView = ImageView(context).apply {
+                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+                innerPreviewLayout.addView(previewImageView)
+                Log.d("Preview", "预览框初始化完成 pfl=${previewFrameLayout != null} img=${previewImageView != null}")
+            }
+
         }
 
         // 左侧跳转栏
@@ -300,6 +336,57 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     }
 
     fun getOrientationUtils() = mOrientationUtils!!
+
+    // ===== 进度条拖动预览 =====
+    // GSY 的 GSYVideoControlView 用 setOnSeekBarChangeListener 覆盖所有监听器，
+    // 所以 PreviewSeekBarLayout 的监听不生效。在这里覆写 GSY 的回调来驱动预览。
+
+    override fun onStartTrackingTouch(seekBar: SeekBar?) {
+        super.onStartTrackingTouch(seekBar)
+        val pfl = previewFrameLayout
+        if (pfl != null && previewFrames.isNotEmpty()) {
+            // 移除 PreviewDelegate 添加的 frameView（带背景色的遮挡层），
+            // 让 previewImageView 直接可见，不被 circular reveal 动画干扰
+            for (i in pfl.childCount - 1 downTo 0) {
+                val child = pfl.getChildAt(i)
+                if (child !is FrameLayout) {
+                    pfl.removeViewAt(i)
+                    Log.d("Preview", "移除遮挡层: ${child.javaClass.simpleName}")
+                }
+            }
+            pfl.visibility = View.VISIBLE
+            pfl.alpha = 1f
+            Log.d("Preview", "onStart frames=${previewFrames.size} vis=${pfl.visibility} w=${pfl.width} h=${pfl.height}")
+        }
+    }
+
+    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+        super.onProgressChanged(seekBar, progress, fromUser)
+        if (!fromUser) return
+        val videoDuration = duration
+        if (videoDuration <= 0 || previewFrames.isEmpty()) return
+
+        val targetTimeMs = progress.toLong() * videoDuration / 100
+        showNearestPreviewFrame(targetTimeMs)
+
+        // 预览框跟随滑块位置
+        val pfl = previewFrameLayout ?: return
+        val parentWidth = (pfl.parent as? View)?.width?.toFloat() ?: 0f
+        val frameWidth = pfl.width.toFloat()
+        if (parentWidth > 0f && frameWidth > 0f) {
+            val ratio = progress.toFloat() / 100f
+            pfl.translationX = ratio * (parentWidth - frameWidth)
+        }
+    }
+
+    override fun onStopTrackingTouch(seekBar: SeekBar?) {
+        super.onStopTrackingTouch(seekBar)
+        Log.d("Preview", "onStopTrackingTouch")
+        previewFrameLayout?.let {
+            it.visibility = View.INVISIBLE
+            it.translationX = 0f
+        }
+    }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         if (mIfCurrentIsFullscreen && mLockCurScreen && mNeedLockFull) {
@@ -357,20 +444,36 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     }
 
     private fun onDoubleTap() {
-        if (currentState == GSYVideoPlayer.CURRENT_STATE_PLAYING || currentState == GSYVideoPlayer.CURRENT_STATE_PAUSE) {
-            mStartButton.performClick()
-        }
+        // 基类 GestureDetector 已处理双击（播放/暂停）
     }
 
     private fun onSingleTapConfirmed() {
-        startDismissControlViewTimer()
-        if (!mChangePosition && !mChangeVolume && !mBrightness) {
-            onClickUiToggle()
-        }
+        // 基类 GSYVideoControlView 的 GestureDetector 已处理单击切换控件
+        // 基类 OnClickListener 已启动自动隐藏定时器，此处无需额外操作
     }
 
-    override fun setUp(url: String): Boolean {
-        return super.setUp(if (url.startsWith("http")) "async:$url" else url)
+    override fun setUp(url: String, cacheWithPlay: Boolean, title: String): Boolean {
+        var fixedUrl = if (url.contains("_layouts/52/")) {
+            url.replace("_layouts/52/", "_layouts/15/")
+        } else {
+            url
+        }
+        // 本地文件路径需要 file:// 前缀，否则 ExoPlayer 会当 HTTP URL 处理报 MalformedURLException
+        if (fixedUrl.startsWith("/") && !fixedUrl.startsWith("file://")) {
+            fixedUrl = "file://$fixedUrl"
+        }
+        // 只为网络 URL 设置请求头，本地文件不需要
+        if (fixedUrl.startsWith("http")) {
+            val baseUrl = ApiConfig.getBaseUrl()
+            mapHeadData = mapOf(
+                "User-Agent" to ApiConfig.CHROME_USER_AGENT,
+                "Referer" to "https://$baseUrl/"
+            )
+        }
+        // 本地文件不走 GSY 缓存路径（CacheDataSource 用 DefaultHttpDataSource，无法处理 file://），
+        // 直接用 DefaultDataSource.Factory 播放本地文件
+        val useCache = if (fixedUrl.startsWith("file://")) false else cacheWithPlay
+        return super.setUp(fixedUrl, useCache, title)
     }
 
     fun setUpDanmu(uri: String) {
@@ -418,9 +521,12 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                         it.text = it.text.replace("全舰弹幕装填...".toRegex(), "全舰弹幕装填...[完成]")
                     }
                 }
-                danmakuView!!.start(currentPositionWhenPlaying.toLong())
-                if (currentState != GSYVideoPlayer.CURRENT_STATE_PLAYING) {
-                    danmakuView!!.pause()
+                // Media3 要求在主线程访问播放器位置，post 到主线程启动弹幕
+                danmakuView?.post {
+                    danmakuView?.start(currentPositionWhenPlaying)
+                    if (currentState != GSYVideoView.CURRENT_STATE_PLAYING) {
+                        danmakuView?.pause()
+                    }
                 }
             }
 
@@ -449,6 +555,8 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
         val player = super.startWindowFullscreen(context, actionBar, statusBar) as DanmuVideoPlayer
         player.speed = speed
+        // 在布局前设置 OrientationUtils，避免全屏 ViewPager 初始化时 NPE
+        player.setOrientationUtils(mOrientationUtils)
 
         danmuUri?.let {
             player.showDanmu(isShowDanmu)
@@ -474,9 +582,9 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     override fun updateStartImage() {
         if (mStartButton is ImageView) {
             val imageView = mStartButton as ImageView
-            if (mCurrentState == GSYVideoPlayer.CURRENT_STATE_PLAYING) {
+            if (mCurrentState == GSYVideoView.CURRENT_STATE_PLAYING) {
                 imageView.setImageResource(com.shuyu.gsyvideoplayer.R.drawable.video_click_pause_selector)
-            } else if (mCurrentState == GSYVideoPlayer.CURRENT_STATE_ERROR) {
+            } else if (mCurrentState == GSYVideoView.CURRENT_STATE_ERROR) {
                 imageView.setImageResource(com.shuyu.gsyvideoplayer.R.drawable.video_click_play_selector)
             } else {
                 imageView.setImageResource(com.shuyu.gsyvideoplayer.R.drawable.video_click_play_selector)
@@ -486,7 +594,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         }
     }
 
-    override fun resolveNormalVideoShow(oldF: View?, vp: ViewGroup?, gsyVideoPlayer: GSYVideoPlayer?) {
+    override fun resolveNormalVideoShow(oldF: View?, vp: ViewGroup?, gsyVideoPlayer: com.shuyu.gsyvideoplayer.video.base.GSYVideoPlayer?) {
         gsyVideoPlayer?.let {
             (it as DanmuVideoPlayer)
             showDanmu(it.isShowDanmu)
@@ -498,11 +606,11 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         super.resolveNormalVideoShow(oldF, vp, gsyVideoPlayer)
     }
 
-    override fun onClickUiToggle() {
-        super.onClickUiToggle()
-        if (mIfCurrentIsFullscreen) {
+    override fun onClickUiToggle(event: MotionEvent?) {
+        super.onClickUiToggle(event)
+        if (mIfCurrentIsFullscreen && ::sendDanmuLinear.isInitialized) {
             if (mBottomContainer.visibility != View.GONE) {
-                if (settingLayout.visibility == View.VISIBLE) {
+                if (::settingLayout.isInitialized && settingLayout.visibility == View.VISIBLE) {
                     hideSetting()
                 }
                 if (sendDanmuLinear.visibility == View.VISIBLE) {
@@ -515,9 +623,9 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     override fun hideAllWidget() {
         super.hideAllWidget()
 
-        if (mIfCurrentIsFullscreen) {
+        if (mIfCurrentIsFullscreen && ::sendDanmuLinear.isInitialized) {
             sendDanmuLinear.visibility = View.GONE
-            if (mBottomContainer.visibility != View.GONE && settingLayout.visibility == View.VISIBLE) {
+            if (mBottomContainer.visibility != View.GONE && ::settingLayout.isInitialized && settingLayout.visibility == View.VISIBLE) {
                 hideSetting()
             }
         }
@@ -538,7 +646,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
             if (isComplete) {
                 (context as DanmuPlayerHolder).onSavePlayHistory(0)
             } else {
-                (context as DanmuPlayerHolder).onSavePlayHistory(currentPositionWhenPlaying)
+                (context as DanmuPlayerHolder).onSavePlayHistory(currentPositionWhenPlaying.toInt())
             }
         }
     }
@@ -552,32 +660,161 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     override fun onVideoResume() {
         super.onVideoResume()
-        if (mCurrentState == GSYVideoPlayer.CURRENT_STATE_PLAYING && danmakuView != null && danmakuView!!.isPrepared && danmakuView!!.isPaused) {
+        if (mCurrentState == GSYVideoView.CURRENT_STATE_PLAYING && danmakuView != null && danmakuView!!.isPrepared && danmakuView!!.isPaused) {
             danmakuView!!.resume()
         }
     }
 
     fun onVideoDestroy() {
         danmakuView?.release()
+        previewDisposable?.dispose()
+        previewFrames.forEach { it.value.recycle() }
+        previewFrames.clear()
     }
 
-    /*
-     * 在这里更新状态
-     * 每隔300ms刷新一次
+    /**
+     * 查找 TreeMap 中距离 targetTimeMs 最近的帧并显示到预览 ImageView
      */
-    override fun setTextAndProgress() {
-        super.setTextAndProgress()
+    private fun showNearestPreviewFrame(targetTimeMs: Long) {
+        val floor = previewFrames.floorEntry(targetTimeMs)
+        val ceiling = previewFrames.ceilingEntry(targetTimeMs)
+        val nearest = when {
+            floor == null -> ceiling
+            ceiling == null -> floor
+            else -> if (targetTimeMs - floor.key <= ceiling.key - targetTimeMs) floor else ceiling
+        }
+        nearest?.value?.let { bitmap ->
+            previewImageView?.setImageBitmap(bitmap)
+            Log.d("Preview", "showNearest target=$targetTimeMs nearest=${nearest.key} " +
+                    "bitmap=${bitmap.width}x${bitmap.height} recycled=${bitmap.isRecycled}")
+        }
+    }
+
+    /**
+     * 从当前播放画面的 TextureView 截图，存入帧缓存
+     * 主线程调用，使用小尺寸 (160x90) 保证性能
+     */
+    private fun captureCurrentFrame(timeMs: Long) {
+        try {
+            val textureView = findTextureView(this)
+            val bitmap = textureView?.getBitmap(PREVIEW_FRAME_WIDTH, PREVIEW_FRAME_HEIGHT)
+            if (bitmap != null) {
+                previewFrames[timeMs] = bitmap
+                Log.d("Preview", "captureCurrentFrame time=$timeMs success total=${previewFrames.size}")
+            } else {
+                Log.d("Preview", "captureCurrentFrame time=$timeMs bitmap=null textureView=${textureView != null}")
+            }
+        } catch (e: Exception) {
+            Log.d("Preview", "captureCurrentFrame time=$timeMs error=${e.message}")
+        }
+    }
+
+    /**
+     * 递归查找 View 树中指定类型的 View（用于定位 TextureView）
+     */
+    private fun findTextureView(view: View): android.view.TextureView? {
+        if (view is android.view.TextureView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                findTextureView(view.getChildAt(i))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    /**
+     * 视频准备就绪后的预览帧初始化：
+     * 1. 立即截取首帧（TextureView 100% 可靠）
+     * 2. 本地文件用 MediaMetadataRetriever 提取全片帧（覆盖未播放区域）
+     *    在线视频网站不提供 seek 预览支持，仅靠播放中 TextureView 截图积累
+     */
+    private fun startPreviewExtraction() {
+        // 立即截取当前帧作为初始预览（onPrepared 时视频首帧已渲染）
+        captureCurrentFrame(0L)
+        lastCaptureTimeMs = 0L
+        Log.d("Preview", "startPreviewExtraction url=$mOriginUrl frames=${previewFrames.size}")
+
+        val url = mOriginUrl ?: return
+        // 仅对本地文件使用 MediaMetadataRetriever（在线视频不支持 seek 预览）
+        if (!url.startsWith("file://") && !url.startsWith("/")) {
+            Log.d("Preview", "非本地文件，跳过 MediaMetadataRetriever")
+            return
+        }
+
+        val videoDuration = duration
+        if (videoDuration <= 5000) return
+
+        previewDisposable?.dispose()
+
+        previewDisposable = Observable.fromCallable {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(url.removePrefix("file://"))
+
+                val result = ArrayList<Pair<Long, Bitmap>>()
+                // 每 10 秒提取一帧，最多 PREVIEW_FRAME_MAX 帧
+                val frameCount = (videoDuration / PREVIEW_FRAME_INTERVAL_MS).toInt().coerceAtMost(PREVIEW_FRAME_MAX) + 1
+                for (i in 0 until frameCount) {
+                    val timeUs = i * PREVIEW_FRAME_INTERVAL_MS * 1000L
+                    retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?.let { original ->
+                            val scaled = Bitmap.createScaledBitmap(original, PREVIEW_FRAME_WIDTH, PREVIEW_FRAME_HEIGHT, true)
+                            if (scaled !== original) original.recycle()
+                            result.add(Pair(timeUs / 1000, scaled))
+                        }
+                }
+                result
+            } catch (_: Exception) {
+                ArrayList()
+            } finally {
+                try { retriever.release() } catch (_: Exception) {}
+            }
+        }
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe({ frames ->
+            Log.d("Preview", "MediaMetadataRetriever 提取完成 frames=${frames.size} 已有=${previewFrames.size}")
+            if (frames.isNotEmpty()) {
+                // 合并：保留 TextureView 已有帧，MediaMetadataRetriever 帧只补充空缺位置
+                // 避免清空 TextureView 帧导致用户拖动时无帧可用
+                frames.forEach { (time, bitmap) ->
+                    // 只在没有该时间点附近的帧时才添加
+                    val existing = previewFrames.floorEntry(time)
+                    if (existing == null || Math.abs(existing.key - time) > PREVIEW_FRAME_INTERVAL_MS / 2) {
+                        previewFrames[time] = bitmap
+                    } else {
+                        bitmap.recycle()
+                    }
+                }
+            }
+        }, { e ->
+            Log.d("Preview", "MediaMetadataRetriever 失败: ${e.message}")
+            // 预生成失败不影响播放，TextureView 截图仍在积累中
+        })
+    }
+
+    // v11 的 setTextAndProgress 需要 int 参数（播放进度百分比）
+    override fun setTextAndProgress(progress: Int) {
+        super.setTextAndProgress(progress)
         if (needCorrectDanmu) {
             needCorrectDanmu = false
             seekDanmu()
         }
+        // 播放中每隔 N 秒从 TextureView 截图，积累帧缓存
+        if (mCurrentState == GSYVideoView.CURRENT_STATE_PLAYING) {
+            val currentTime = currentPositionWhenPlaying
+            if (currentTime - lastCaptureTimeMs >= PREVIEW_CAPTURE_INTERVAL) {
+                lastCaptureTimeMs = currentTime
+                captureCurrentFrame(currentTime)
+            }
+        }
         when (mCurrentState) {
-            GSYVideoPlayer.CURRENT_STATE_PLAYING_BUFFERING_START, GSYVideoPlayer.CURRENT_STATE_PAUSE -> {
+            GSYVideoView.CURRENT_STATE_PLAYING_BUFFERING_START, GSYVideoView.CURRENT_STATE_PAUSE -> {
                 if (mLastState == mCurrentState) {
                     pauseDanmu()
                 }
             }
-            GSYVideoPlayer.CURRENT_STATE_PLAYING  -> {
+            GSYVideoView.CURRENT_STATE_PLAYING  -> {
                 if (mLastState != mCurrentState) {
                     resumeDanmu()
                 }
@@ -588,8 +825,10 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     override fun onPrepared() {
         super.onPrepared()
-        // 隐藏状态栏
-        CommonUtil.hideSupportActionBar(context, true, true)
+        Log.d("Preview", "onPrepared called")
+        // 非全屏模式下保留状态栏，全屏模式由 startWindowFullscreen 自行处理
+        // 初始化预览帧：截取首帧 + 后台尝试全片提取
+        startPreviewExtraction()
     }
 
     fun resumeDanmu() {
@@ -606,7 +845,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     fun seekDanmu() {
         if (danmakuView != null && danmakuView!!.isPrepared) {
-            danmakuView!!.seekTo(currentPositionWhenPlaying.toLong())
+            danmakuView!!.seekTo(currentPositionWhenPlaying)
         }
     }
 

@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.TextView
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import me.sweetll.tucao.utils.PlayerConfig
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseFragment
 import me.sweetll.tucao.extension.formatDanmuOpacityToString

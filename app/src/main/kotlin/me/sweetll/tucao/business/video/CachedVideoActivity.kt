@@ -7,13 +7,8 @@ import android.os.Bundle
 import android.text.format.DateFormat
 import android.view.View
 import android.view.WindowManager
-import com.shuyu.gsyvideoplayer.GSYPreViewManager
 import com.shuyu.gsyvideoplayer.GSYVideoManager
-import com.shuyu.gsyvideoplayer.GSYVideoPlayer
-import com.shuyu.gsyvideoplayer.model.VideoOptionModel
-import com.shuyu.gsyvideoplayer.utils.GSYVideoType
 import com.shuyu.gsyvideoplayer.utils.OrientationUtils
-import com.shuyu.gsyvideoplayer.utils.PlayerConfig
 
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
@@ -25,7 +20,6 @@ import me.sweetll.tucao.extension.setUp
 import me.sweetll.tucao.extension.toast
 import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.widget.DanmuVideoPlayer
-import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.io.File
 import java.util.*
 
@@ -78,9 +72,10 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             "未发现弹幕文件，请更新弹幕".toast()
         }
 
-        binding.player.startButton.performClick()
+        binding.player.getStartButton().performClick()
 
-        orientationUtils = OrientationUtils(this)
+        // v11 的 OrientationUtils 需要传入 Activity 和 Player
+        orientationUtils = OrientationUtils(this, binding.player)
         binding.player.setOrientationUtils(orientationUtils)
     }
 
@@ -90,23 +85,15 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             it.text = it.text.replace("全舰弹幕装填...".toRegex(), "")
         }
 
-        GSYVideoManager.instance().optionModelList = mutableListOf(
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "safe", 0),
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist", "concat,file,subfile,http,https,tls,rtp,tcp,udp,crypto"),
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user_agent", "ijk")
-        )
-        binding.player.isLockLand = true
-        binding.player.isNeedLockFull = true
-        binding.player.isOpenPreView = true
-        binding.player.isNeedShowWifiTip = false
+        binding.player.setLockLand(true)
+        binding.player.setNeedLockFull(true)
+        binding.player.setNeedShowWifiTip(false)
 
-        if (PlayerConfig.loadHardCodec()) {
-            GSYVideoType.enableMediaCodec() // 开启硬解
-        }
+        // ExoPlayer 自动处理硬解，无需手动设置 MediaCodec
 
-        binding.player.setStandardVideoAllCallBack(object: StandardVideoAllCallBackAdapter() {
-            override fun onPrepared(url: String?) {
-                super.onPrepared(url)
+        binding.player.setVideoAllCallBack(object: StandardVideoAllCallBackAdapter() {
+            override fun onPrepared(url: String?, vararg objects: Any?) {
+                super.onPrepared(url, *objects)
                 isPlay = true
                 if (firstPlay) {
                     firstPlay = false
@@ -118,8 +105,8 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
         })
 
-        binding.player.fullscreenButton.visibility = View.GONE
-        binding.player.backButton.setOnClickListener {
+        binding.player.getFullscreenButton().visibility = View.GONE
+        binding.player.getBackButton().setOnClickListener {
             onBackPressed()
         }
     }
@@ -130,11 +117,17 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
         durls.isNotEmpty().let {
             binding.player.loadText?.let {
                 it.text = it.text.replace("解析视频地址...".toRegex(), "解析视频地址...[完成]")
-                binding.player.startButton.visibility = View.VISIBLE
+                binding.player.getStartButton().visibility = View.VISIBLE
             }
             if (durls.size == 1) {
-                binding.player.setUp(durls[0].getCacheAbsolutePath())
+                binding.player.setUp(durls[0].getCacheAbsolutePath(), true, "")
             } else {
+                // 多段视频：将每个 Durl 的 url 更新为本地缓存路径（加 file:// 前缀）
+                durls.forEach { durl ->
+                    if (durl.url.isEmpty() && durl.cacheFolderPath.isNotEmpty()) {
+                        durl.url = "file://${durl.cacheFolderPath}/${durl.cacheFileName}"
+                    }
+                }
                 binding.player.setUp(durls, true)
             }
         }
@@ -158,8 +151,7 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onDestroy() {
         super.onDestroy()
-        GSYVideoPlayer.releaseAllVideos()
-        GSYPreViewManager.instance().releaseMediaPlayer()
+        GSYVideoManager.releaseAllVideos()
         binding.player.onVideoDestroy()
     }
 
