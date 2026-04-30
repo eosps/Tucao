@@ -18,4 +18,10 @@
             android:summary="扫描下载目录，恢复丢失的离线缓存记录" >
         </Preference>
     </PreferenceCategory>
+    <PreferenceCategory android:title="缓存管理">
+        <Preference android:title="清理分享临时文件"
+            android:key="clean_share_temp"
+            android:summary="清理分享时产生的临时文件（自动保留5天）" >
+        </Preference>
+    </PreferenceCategory>
 </PreferenceScreen>

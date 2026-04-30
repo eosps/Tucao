@@ -43,11 +43,64 @@ object DownloadHelpers {
     // metadata.json 文件名，保存在下载目录根目录
     private val METADATA_FILE_NAME = "metadata.json"
 
+    // 分享临时文件生存周期：5 天（毫秒）
+    private val SHARE_FILE_TTL_MS = 5L * 24 * 60 * 60 * 1000
+
     private val defaultPath = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS).path + "/me.sweetll.tucao"
     // 延迟初始化：只有真正执行下载/暂停/取消操作时才启动 DownloadService
     private val rxDownload: RxDownload by lazy { RxDownload.getInstance(AppApplication.get()) }
 
     val serviceInstance = ServiceInstance()
+
+    /**
+     * 获取分享临时文件目录
+     */
+    fun getShareTempDir(): File {
+        return File(AppApplication.get().cacheDir, "share")
+    }
+
+    /**
+     * 清理过期的分享临时文件（超过 TTL 的自动删除）
+     * 在 App 启动时调用
+     * @return 清理的文件数量
+     */
+    fun cleanExpiredShareFiles(): Int {
+        val shareDir = getShareTempDir()
+        if (!shareDir.exists()) return 0
+        val deadline = System.currentTimeMillis() - SHARE_FILE_TTL_MS
+        var count = 0
+        shareDir.listFiles()?.forEach { file ->
+            if (file.lastModified() < deadline) {
+                if (file.delete()) count++
+            }
+        }
+        return count
+    }
+
+    /**
+     * 清理所有分享临时文件（手动清理时调用）
+     * @return 清理的文件数量
+     */
+    fun cleanAllShareTempFiles(): Int {
+        val shareDir = getShareTempDir()
+        if (!shareDir.exists()) return 0
+        var count = 0
+        shareDir.listFiles()?.forEach { file ->
+            if (file.delete()) count++
+        }
+        return count
+    }
+
+    /**
+     * 获取分享临时文件占用空间信息
+     * @return (文件数量, 总大小字节)
+     */
+    fun getShareTempFilesInfo(): Pair<Int, Long> {
+        val shareDir = getShareTempDir()
+        if (!shareDir.exists()) return Pair(0, 0L)
+        val files = shareDir.listFiles() ?: return Pair(0, 0L)
+        return Pair(files.size, files.sumOf { it.length() })
+    }
 
     private val adapter by lazy {
         val moshi = Moshi.Builder()
@@ -388,8 +441,9 @@ object DownloadHelpers {
                 .sortedBy { it.order }
         if (durls.isEmpty()) return null
 
-        // 构建输出文件名：标题_集名.mp4
-        val safeName = (videoTitle + "_" + part.title)
+        // 构建输出文件名：标题_集名.mp4（集名为空时用 P+序号代替）
+        val partName = if (part.title.isNotEmpty()) part.title else "P${part.order}"
+        val safeName = (videoTitle + "_" + partName)
                 .replace(Regex("[\\\\/:*?\"<>|]"), "_")
                 .trim()
         val outputFile = File(outputDir, "$safeName.mp4")
@@ -435,13 +489,51 @@ object DownloadHelpers {
     }
 
     /**
+     * 将多个文件打包为 ZIP
+     * 使用 java.util.zip.ZipOutputStream，无需额外依赖
+     * @param files 要打包的文件列表
+     * @param outputDir ZIP 输出目录
+     * @return ZIP 文件，失败返回 null
+     */
+    fun zipFiles(files: List<File>, outputDir: File, onProgress: ((index: Int, total: Int, fileName: String) -> Unit)? = null): File? {
+        if (files.isEmpty()) return null
+        val zipFile = File(outputDir, "videos_${System.currentTimeMillis()}.zip")
+        try {
+            java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(zipFile.outputStream())).use { zipOut ->
+                files.forEachIndexed { index, file ->
+                    if (!file.exists()) return@forEachIndexed
+                    onProgress?.invoke(index, files.size, file.name)
+                    java.io.BufferedInputStream(file.inputStream()).use { input ->
+                        zipOut.putNextEntry(java.util.zip.ZipEntry(file.name))
+                        input.copyTo(zipOut)
+                        zipOut.closeEntry()
+                    }
+                }
+            }
+            if (zipFile.length() == 0L) {
+                zipFile.delete()
+                return null
+            }
+            return zipFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            zipFile.delete()
+            return null
+        }
+    }
+
+    /**
      * 合并 Part 并导出到系统 Downloads 目录
      * @return 导出后的文件，失败返回 null
      */
     fun exportPartToDownloads(part: Part, videoTitle: String): File? {
         val downloadsDir = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)
         if (!downloadsDir.exists()) downloadsDir.mkdirs()
-        return mergePartFiles(part, videoTitle, downloadsDir)
+        // 为每个视频创建以标题命名的子文件夹
+        val safeTitle = videoTitle.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+        val videoDir = File(downloadsDir, safeTitle)
+        if (!videoDir.exists()) videoDir.mkdirs()
+        return mergePartFiles(part, videoTitle, videoDir)
     }
 
     private val PREF_BACKUP_PATH = "backup_path"

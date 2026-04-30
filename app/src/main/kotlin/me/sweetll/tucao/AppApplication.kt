@@ -68,6 +68,8 @@ class AppApplication : MultiDexApplication(), HasAndroidInjector {
         CacheFactory.setCacheManager(ExoPlayerCacheManager::class.java)
         initComponent()
         initChannel()
+        // 清理过期的分享临时文件（超过 5 天自动删除）
+        me.sweetll.tucao.extension.DownloadHelpers.cleanExpiredShareFiles()
 
         postUpdate()
     }
