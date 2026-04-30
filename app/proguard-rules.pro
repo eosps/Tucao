@@ -98,6 +98,16 @@
     *;
 }
 
+# 自定义播放器（含 XML 回调、反射调用）
+-keep public class me.sweetll.tucao.widget.** {
+    *;
+}
+
+# 播放器工具类（PlayerConfig 等 SharedPreferences 读写）
+-keep public class me.sweetll.tucao.utils.** {
+    *;
+}
+
 # 过渡动画
 -keep public class me.sweetll.tucao.transition.** {
     *;
@@ -117,6 +127,16 @@
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
+
+# 保留 Retrofit 服务接口的方法签名（包括泛型返回类型），防止 R8 擦除泛型信息
+-keep interface me.sweetll.tucao.di.service.** {
+    <methods>;
+}
+
+# RxJava — Retrofit 通过反射读取 Observable 的泛型参数，不能被混淆
+-keep class io.reactivex.** { *; }
+-keep interface io.reactivex.** { *; }
+-dontwarn io.reactivex.**
 
 # OkHttp3
 -keepattributes Signature
@@ -202,10 +222,25 @@
     public *;
 }
 
-# IjkMediaPlayer
--keep class tv.danmaku.ijk.media.player.** {*;}
--dontwarn tv.danmaku.ijk.media.player.*
--keep interface tv.danmaku.ijk.media.player.** {*;}
+# GSYVideoPlayer
+-keep class com.shuyu.gsyvideoplayer.video.** { *; }
+-dontwarn com.shuyu.gsyvideoplayer.video.**
+-keep class com.shuyu.gsyvideoplayer.player.** { *; }
+-dontwarn com.shuyu.gsyvideoplayer.player.**
+-keep class com.shuyu.gsyvideoplayer.utils.** { *; }
+-keep class com.shuyu.gsyvideoplayer.cache.** { *; }
+-dontwarn com.shuyu.gsyvideoplayer.cache.**
+-keep class com.shuyu.gsyvideoplayer.listener.** { *; }
+-keep class com.shuyu.gsyvideoplayer.model.** { *; }
+
+# GSY ExoPlayer 播放引擎（PlayerFactory/CacheFactory 通过反射 Class.newInstance 创建实例）
+-keep class tv.danmaku.ijk.media.exo2.** { *; }
+-dontwarn tv.danmaku.ijk.media.exo2.**
+
+# ExoPlayer / Media3
+-keep class androidx.media3.** { *; }
+-keep interface androidx.media3.** { *; }
+-dontwarn androidx.media3.**
 
 # Glide
 -keep public class * implements com.bumptech.glide.module.GlideModule

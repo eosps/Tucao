@@ -298,6 +298,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                 isPlay = false
                 binding.player.onVideoPause(true, true)
             }
+
         })
     }
 

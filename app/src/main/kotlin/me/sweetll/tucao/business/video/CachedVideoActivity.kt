@@ -112,7 +112,6 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
     }
 
     fun loadPart(part: Part) {
-
         val durls = part.durls
         durls.isNotEmpty().let {
             binding.player.loadText?.let {
@@ -120,7 +119,8 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                 binding.player.getStartButton().visibility = View.VISIBLE
             }
             if (durls.size == 1) {
-                binding.player.setUp(durls[0].getCacheAbsolutePath(), true, "")
+                val url = durls[0].getCacheAbsolutePath()
+                binding.player.setUp(url, true, "")
             } else {
                 // 多段视频：将每个 Durl 的 url 更新为本地缓存路径（加 file:// 前缀）
                 durls.forEach { durl ->
