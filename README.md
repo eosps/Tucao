@@ -1,8 +1,7 @@
 # Tucao
 
-[![Travis](https://img.shields.io/travis/blackbbc/Tucao.svg)](https://travis-ci.org/blackbbc/Tucao)
-[![GitHub release](https://img.shields.io/github/release/blackbbc/Tucao.svg)](https://github.com/blackbbc/Tucao/releases)
-[![license](https://img.shields.io/github/license/blackbbc/Tucao.svg)](https://github.com/blackbbc/Tucao/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/eosps/Tucao.svg)](https://github.com/eosps/Tucao/releases)
+[![license](https://img.shields.io/github/license/eosps/Tucao.svg)](https://github.com/eosps/Tucao/blob/master/LICENSE)
 
 ![](http://www.tucao.tv/skin2013/banner.jpg)
 
@@ -51,10 +50,10 @@
 - [ ] 修复播放时跳回开头的问题（无法100%重现，原因不明）
 
 ## 常见问题
-- [常见问题](https://github.com/blackbbc/Tucao/blob/master/FAQ.md)
+- [常见问题](https://github.com/eosps/Tucao/blob/master/FAQ.md)
 
 ## 更新历史
-- [更新历史](https://github.com/blackbbc/Tucao/blob/master/changelog.md)
+- [更新历史](https://github.com/eosps/Tucao/blob/master/changelog.md)
 
 ## 近期修复记录
 
@@ -84,7 +83,7 @@ Android Studio 版本: 最新稳定版
 
 由于项目中使用了[子模块](https://git-scm.com/book/zh/v1/Git-工具-子模块)，请务必使用以下命令克隆项目
 ```
-git clone --recursive -j8 https://github.com/blackbbc/Tucao.git
+git clone --recursive -j8 https://github.com/eosps/Tucao.git
 ```
 
 - 架构基于 MVVM 模式，使用 `DataBinding` + `RxJava2` + `Dagger2` + `Retrofit` 实现
@@ -96,17 +95,20 @@ git clone --recursive -j8 https://github.com/blackbbc/Tucao.git
 
 ## 感谢以下开源项目
 - [Kotlin](https://github.com/JetBrains/kotlin)
-- [RxJava](https://github.com/ReactiveX/RxJava)
+- [RxJava2](https://github.com/ReactiveX/RxJava)
 - [RxLifecycle](https://github.com/trello/RxLifecycle)
-- [RxDownload](https://github.com/ssseasonnn/RxDownload)
 - [Retrofit](https://github.com/square/retrofit)
+- [OkHttp](https://github.com/square/okhttp)
+- [Moshi](https://github.com/square/moshi)
 - [Dagger2](https://github.com/google/dagger)
-- [EventBus](https://github.com/greenrobot/EventBus)
 - [GSYVideoPlayer](https://github.com/CarGuo/GSYVideoPlayer)
 - [ExoPlayer / Media3](https://github.com/androidx/media)
 - [DanmakuFlameMaster](https://github.com/Bilibili/DanmakuFlameMaster)
 - [Glide](https://github.com/bumptech/glide)
+- [Jsoup](https://github.com/jhy/jsoup)
+- [EventBus](https://github.com/greenrobot/EventBus)
+- [Room](https://developer.android.com/training/data-storage/room)
 - [BaseRecyclerViewAdapterHelper](https://github.com/CymChad/BaseRecyclerViewAdapterHelper)
-- [CrashWoodpecker](https://github.com/drakeet/CrashWoodpecker)
-- [Leakcanary](https://github.com/square/leakcanary)
+- [PersistentCookieJar](https://github.com/nickkwasnicki/PersistentCookieJar)
+- [CrashWoodpecker](https://github.com/nickkwasnicki/CrashWoodpecker)
 - [Convenientbanner](https://github.com/saiwu-bigkoo/Android-ConvenientBanner)
