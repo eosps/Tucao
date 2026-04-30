@@ -22,6 +22,7 @@ import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.databinding.FragmentDownloadedBinding
 import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.toast
+import me.sweetll.tucao.AppApplication
 import org.greenrobot.eventbus.EventBus
 import java.io.File
 import org.greenrobot.eventbus.Subscribe
@@ -54,6 +55,9 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
                     return
                 }
                 (activity as DownloadActivity).openContextMenu(this@DownloadedFragment, true)
+                // 底部栏高度 45dp，给 RecyclerView 加底部 padding 防止遮挡
+                val bottomPadding = (56 * resources.displayMetrics.density).toInt()
+                binding.videoRecycler.setPadding(0, 0, 0, bottomPadding)
                 videoAdapter.data.forEach {
                     when (it) {
                         is Video -> {
@@ -91,6 +95,8 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
     }
 
     override fun onDestroyContextMenu() {
+        // 移除底部 padding
+        binding.videoRecycler.setPadding(0, 0, 0, 0)
         videoAdapter.data.forEach {
             when (it) {
                 is Video -> {
@@ -180,7 +186,7 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
     }
 
     /**
-     * 分享：合并每个选中 Part 为单文件后通过系统分享面板发送
+     * 分享：合并每个选中 Part，多文件打包为 ZIP，弹出自定义分享面板（QQ/微信/更多）
      */
     override fun onClickShare() {
         val selected = collectSelectedParts()
@@ -189,41 +195,171 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
             return
         }
 
-        "正在合并视频片段...".toast()
+        // 创建进度对话框，保持屏幕常亮防止合并/压缩时被系统杀死
+        val progressDialog = android.app.ProgressDialog(activity).apply {
+            setTitle("准备分享")
+            setMessage("正在准备...")
+            setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL)
+            // 合并步骤 + 可能的 ZIP 步骤
+            max = selected.size + 1
+            progress = 0
+            setCancelable(false)
+        }
+        progressDialog.show()
+        progressDialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         io.reactivex.Single.fromCallable {
-            selected.mapNotNull { (part, title) ->
-                DownloadHelpers.mergePartToTempFile(part, title)
+            val tempDir = File(AppApplication.get().cacheDir, "share")
+            if (!tempDir.exists()) tempDir.mkdirs()
+            // 清理旧的临时文件
+            tempDir.listFiles()?.forEach { it.delete() }
+
+            // 逐个合并视频片段
+            val mergedFiles = mutableListOf<File>()
+            selected.forEachIndexed { index, (part, title) ->
+                val name = "${title}_${part.title}"
+                activity?.runOnUiThread {
+                    progressDialog.setMessage("正在合并 (${index + 1}/${selected.size}): $name")
+                    progressDialog.progress = index
+                }
+                DownloadHelpers.mergePartFiles(part, title, tempDir)?.let { mergedFiles.add(it) }
             }
+
+            if (mergedFiles.isEmpty()) return@fromCallable null
+
+            // 单文件直接返回
+            if (mergedFiles.size == 1) {
+                activity?.runOnUiThread { progressDialog.progress = selected.size + 1 }
+                return@fromCallable listOf(mergedFiles[0])
+            }
+
+            // 多文件时计算总大小，决定是否打包 ZIP
+            val totalSize = mergedFiles.sumOf { it.length() }
+            // 视频文件已是压缩编码，ZIP 几乎无法再减小体积
+            // 大于 200MB 时跳过 ZIP，直接分享多个文件
+            if (totalSize > 200 * 1024 * 1024L) {
+                activity?.runOnUiThread { progressDialog.progress = selected.size + 1 }
+                return@fromCallable mergedFiles
+            }
+
+            // 小文件打包 ZIP，切换进度为压缩模式
+            activity?.runOnUiThread {
+                progressDialog.setTitle("压缩打包")
+                progressDialog.setMessage("正在压缩 (0/${mergedFiles.size})...")
+                progressDialog.progress = 0
+                progressDialog.max = mergedFiles.size
+            }
+            val zipFile = DownloadHelpers.zipFiles(mergedFiles, tempDir) { index, total, fileName ->
+                activity?.runOnUiThread {
+                    progressDialog.setMessage("正在压缩 (${index + 1}/$total): $fileName")
+                    progressDialog.progress = index + 1
+                }
+            }
+            // 清理临时合并文件，只保留 ZIP
+            mergedFiles.forEach { it.delete() }
+
+            activity?.runOnUiThread { progressDialog.progress = selected.size + 1 }
+            if (zipFile != null) listOf(zipFile) else null
         }.subscribeOn(io.reactivex.schedulers.Schedulers.io())
                 .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
                 .subscribe({ files ->
-                    if (files.isEmpty()) {
+                    progressDialog.dismiss()
+                    if (files == null || files.isEmpty()) {
                         "未找到可分享的视频文件".toast()
                         return@subscribe
                     }
-                    // 通过 FileProvider 分享合并后的文件
-                    val authority = "${BuildConfig.APPLICATION_ID}.fileprovider"
-                    val uris = files.map { FileProvider.getUriForFile(activity!!, authority, it) }
-                    val shareIntent = Intent().apply {
-                        action = if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE
-                        type = "video/*"
-                        if (uris.size == 1) {
-                            putExtra(Intent.EXTRA_STREAM, uris[0])
-                        } else {
-                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
-                        }
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    startActivity(Intent.createChooser(shareIntent, "分享视频"))
+                    showShareDialog(files)
                 }, { error ->
+                    progressDialog.dismiss()
                     error.printStackTrace()
-                    "合并视频失败".toast()
+                    "准备分享文件失败".toast()
                 })
     }
 
     /**
-     * 导出：合并每个选中 Part 为单文件后保存到系统 Downloads 目录
+     * 显示自定义分享面板：QQ / 微信 / 更多方式
+     * 自动检测已安装的应用，未安装的不显示
+     * @param files 要分享的文件列表（单文件或 ZIP 包或多文件）
+     */
+    private fun showShareDialog(files: List<File>) {
+        val ctx = activity ?: return
+        val authority = "${BuildConfig.APPLICATION_ID}.fileprovider"
+        val isSingleZip = files.size == 1 && files[0].name.endsWith(".zip")
+        val mimeType = if (isSingleZip) "application/zip" else "video/*"
+
+        val labels = mutableListOf<String>()
+        val intents = mutableListOf<Intent>()
+
+        // 检测 QQ
+        val qqIntent = buildShareIntent(ctx, authority, files, mimeType, "com.tencent.mobileqq")
+        if (qqIntent != null) {
+            labels.add("QQ")
+            intents.add(qqIntent)
+        }
+
+        // 检测微信
+        val wechatIntent = buildShareIntent(ctx, authority, files, mimeType, "com.tencent.mm")
+        if (wechatIntent != null) {
+            labels.add("微信")
+            intents.add(wechatIntent)
+        }
+
+        // 更多方式（系统分享面板）
+        val genericIntent = buildShareIntent(ctx, authority, files, mimeType, null)!!
+        labels.add("更多方式")
+        intents.add(genericIntent)
+
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle("分享到")
+                .setItems(labels.toTypedArray()) { _, which ->
+                    val intent = intents[which]
+                    if (which == labels.lastIndex) {
+                        // "更多方式" 使用系统选择器
+                        startActivity(Intent.createChooser(intent, "分享视频"))
+                    } else {
+                        // QQ / 微信直接启动
+                        startActivity(intent)
+                    }
+                }
+                .show()
+    }
+
+    /**
+     * 构建分享 Intent，支持单文件和多文件分享
+     * @param packageName 指定目标包名（null 表示不限定）
+     * @return Intent，如果指定包名但目标应用未安装则返回 null
+     */
+    private fun buildShareIntent(ctx: android.content.Context, authority: String,
+                                  files: List<File>, mimeType: String,
+                                  packageName: String?): Intent? {
+        val intent = Intent()
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+        if (files.size == 1) {
+            // 单文件分享
+            intent.action = Intent.ACTION_SEND
+            intent.type = mimeType
+            intent.putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(ctx, authority, files[0]))
+        } else {
+            // 多文件分享
+            intent.action = Intent.ACTION_SEND_MULTIPLE
+            intent.type = mimeType
+            val uris = ArrayList(files.map { FileProvider.getUriForFile(ctx, authority, it) })
+            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+        }
+
+        if (packageName != null) {
+            intent.setPackage(packageName)
+            // 检查目标应用是否安装
+            if (ctx.packageManager.queryIntentActivities(intent, 0).isEmpty()) {
+                return null
+            }
+        }
+        return intent
+    }
+
+    /**
+     * 导出：合并每个选中 Part 为单文件后保存到系统 Downloads 目录，带进度显示
      */
     override fun onClickExport() {
         val selected = collectSelectedParts()
@@ -232,15 +368,36 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
             return
         }
 
-        "正在导出视频...".toast()
+        // 创建进度对话框
+        val progressDialog = android.app.ProgressDialog(activity).apply {
+            setTitle("导出视频")
+            setMessage("正在准备...")
+            setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL)
+            max = selected.size
+            progress = 0
+            setCancelable(false)
+        }
+        progressDialog.show()
 
         io.reactivex.Single.fromCallable {
-            selected.mapNotNull { (part, title) ->
-                DownloadHelpers.exportPartToDownloads(part, title)
+            val files = mutableListOf<File>()
+            selected.forEachIndexed { index, (part, title) ->
+                val name = "${title}_${part.title}"
+                // 在主线程更新进度
+                activity?.runOnUiThread {
+                    progressDialog.setMessage("正在导出 (${index + 1}/${selected.size}): $name")
+                    progressDialog.progress = index
+                }
+                DownloadHelpers.exportPartToDownloads(part, title)?.let { files.add(it) }
             }
+            activity?.runOnUiThread {
+                progressDialog.progress = selected.size
+            }
+            files
         }.subscribeOn(io.reactivex.schedulers.Schedulers.io())
                 .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
                 .subscribe({ files ->
+                    progressDialog.dismiss()
                     if (files.isEmpty()) {
                         "未找到可导出的视频文件".toast()
                         return@subscribe
@@ -252,6 +409,7 @@ class DownloadedFragment: BaseFragment(), DownloadActivity.ContextMenuCallback {
                     }
                     "已导出 ${files.size} 个视频到 Download 目录".toast()
                 }, { error ->
+                    progressDialog.dismiss()
                     error.printStackTrace()
                     "导出视频失败".toast()
                 })
