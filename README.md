@@ -6,7 +6,7 @@
 ![](http://www.tucao.tv/skin2013/banner.jpg)
 
 ## 特色
-- 首页六大模块，推荐、新番、影剧、游戏、动画、频道
+- 首页四大板块，推荐、新番、影剧、综合
 - 全站排行榜，支持每日/每周排序
 - 放映时间表，可以查看周一到周日新番的更新情况
 - 频道列表，支持按照发布时间/播放量/弹幕排序
@@ -15,45 +15,7 @@
 - 视频离线缓存，支持缓存弹幕
 - 进度条拖动预览（本地缓存视频支持帧预览，在线视频支持已播放画面预览）
 
-## 截图
-<a href="art/1.gif"><img src="art/1.gif" width="30%"/></a>
-<a href="art/2.gif"><img src="art/2.gif" width="30%"/></a>
-<a href="art/3.gif"><img src="art/3.gif" width="30%"/></a>
-
-<a href="art/4.gif"><img src="art/4.gif" width="50%"/></a>
-
-<a href="art/5.png"><img src="art/5.png" width="30%"/></a>
-<a href="art/6.png"><img src="art/6.png" width="30%"/></a>
-<a href="art/7.png"><img src="art/7.png" width="30%"/></a>
-
-<a href="art/8.png"><img src="art/8.png" width="30%"/></a>
-<a href="art/9.png"><img src="art/9.png" width="30%"/></a>
-<a href="art/10.png"><img src="art/10.png" width="30%"/></a>
-
-<a href="art/11.png"><img src="art/11.png" width="30%"/></a>
-<a href="art/12.png"><img src="art/12.png" width="30%"/></a>
-<a href="art/13.png"><img src="art/13.png" width="30%"/></a>
-
-<a href="art/14.png"><img src="art/14.png" width="30%"/></a>
-<a href="art/15.png"><img src="art/15.png" width="30%"/></a>
-<a href="art/16.png"><img src="art/16.png" width="30%"/></a>
-
-<a href="art/17.png"><img src="art/17.png" width="30%"/></a>
-<a href="art/18.png"><img src="art/18.png" width="30%"/></a>
-<a href="art/19.png"><img src="art/19.png" width="30%"/></a>
-
-## 待做列表
-- [ ] 同步收藏（接口不全）
-- [ ] 发私信（接口不全）
-- [ ] 查看私信（接口不全）
-- [ ] 准备播放时会弹回主界面（无法重现）
-- [ ] 修复播放时跳回开头的问题（无法100%重现，原因不明）
-
 ## 常见问题
-- [常见问题](https://github.com/eosps/Tucao/blob/master/FAQ.md)
-
-## 更新历史
-- [更新历史](https://github.com/eosps/Tucao/blob/master/changelog.md)
 
 ## 近期修复记录
 
