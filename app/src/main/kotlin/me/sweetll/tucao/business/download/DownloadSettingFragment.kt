@@ -86,6 +86,49 @@ class DownloadSettingFragment: PreferenceFragment() {
             }
             true
         }
+
+        // 清理分享临时文件
+        val cleanSharePref = findPreference("clean_share_temp")
+        updateCleanShareSummary(cleanSharePref)
+        cleanSharePref.setOnPreferenceClickListener {
+            performCleanShareTemp(cleanSharePref)
+            true
+        }
+    }
+
+    /**
+     * 更新清理分享临时文件的摘要信息（显示当前占用空间）
+     */
+    private fun updateCleanShareSummary(pref: Preference?) {
+        pref ?: return
+        val (count, size) = DownloadHelpers.getShareTempFilesInfo()
+        if (count > 0) {
+            val sizeStr = String.format("%.1f MB", size / (1024.0 * 1024.0))
+            pref.summary = "当前 ${count} 个文件，占用 ${sizeStr}（自动保留5天）"
+        } else {
+            pref.summary = "当前无临时文件（自动保留5天）"
+        }
+    }
+
+    /**
+     * 执行清理分享临时文件
+     */
+    private fun performCleanShareTemp(pref: Preference) {
+        val (count, _) = DownloadHelpers.getShareTempFilesInfo()
+        if (count == 0) {
+            "当前没有需要清理的临时文件".toast()
+            return
+        }
+        AlertDialog.Builder(activity)
+                .setTitle("清理分享临时文件")
+                .setMessage("确认清理所有分享临时文件？\n共 ${count} 个文件。")
+                .setPositiveButton("清理") { _, _ ->
+                    val deleted = DownloadHelpers.cleanAllShareTempFiles()
+                    "已清理 ${deleted} 个临时文件".toast()
+                    updateCleanShareSummary(pref)
+                }
+                .setNegativeButton("取消", null)
+                .show()
     }
 
     private fun requestStoragePermission(action: () -> Unit) {
