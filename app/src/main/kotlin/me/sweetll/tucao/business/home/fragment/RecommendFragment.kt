@@ -1,5 +1,7 @@
 package me.sweetll.tucao.business.home.fragment
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.transition.ArcMotion
 import android.transition.ChangeBounds
@@ -17,6 +19,7 @@ import com.chad.library.adapter.base.listener.OnItemChildClickListener
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseFragment
 import me.sweetll.tucao.business.channel.ChannelDetailActivity
+import me.sweetll.tucao.business.home.RecommendListActivity
 import me.sweetll.tucao.business.home.adapter.BannerHolder
 import me.sweetll.tucao.business.home.adapter.RecommendAdapter
 import me.sweetll.tucao.business.home.viewmodel.RecommendViewModel
@@ -75,7 +78,14 @@ class RecommendFragment : BaseFragment() {
                         viewModel.onClickRank(view)
                     }
                     R.id.card_more -> {
-                        ChannelDetailActivity.intentTo(activity!!, view.tag as Int)
+                        // tag 可能是 Int（频道 id）或 String（"今天推荐"标记）
+                        val tag = view.tag
+                        if (tag is String) {
+                            // "今天推荐"的"更多"，跳转推荐列表页
+                            RecommendListActivity.intentTo(activity!!)
+                        } else if (tag is Int) {
+                            ChannelDetailActivity.intentTo(activity!!, tag)
+                        }
                     }
                     R.id.card1, R.id.card2, R.id.card3, R.id.card4 -> {
                         val coverImg = (((view as ViewGroup).getChildAt(0) as ViewGroup).getChildAt(0) as ViewGroup).getChildAt(0)

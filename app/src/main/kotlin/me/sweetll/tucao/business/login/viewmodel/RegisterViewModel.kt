@@ -3,7 +3,6 @@ package me.sweetll.tucao.business.login.viewmodel
 import androidx.databinding.ObservableField
 import android.os.Handler
 import android.os.Message
-import android.util.Patterns
 import android.view.View
 import com.trello.rxlifecycle2.kotlin.bindToLifecycle
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -23,28 +22,14 @@ import java.lang.ref.WeakReference
 
 class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
 
-    val codeBytes = ObservableField<ByteArray>()
-
     val account = NonNullObservableField("")
-    val nickname = NonNullObservableField("")
-    val email = NonNullObservableField("")
     val newPassword = NonNullObservableField("")
-    val renewPassword = NonNullObservableField("")
-    val code = NonNullObservableField("")
 
     val accountEnabled = NonNullObservableField(true)
-    val nicknameEnabled = NonNullObservableField(true)
-    val emailEnabled = NonNullObservableField(true)
     val newPasswordEnabled = NonNullObservableField(true)
-    val renewPasswordEnabled = NonNullObservableField(true)
-    val codeEnabled = NonNullObservableField(true)
 
     val accountError = NonNullObservableField("")
-    val nicknameError = NonNullObservableField("")
-    val emailError = NonNullObservableField("")
     val newError = NonNullObservableField("")
-    val renewError = NonNullObservableField("")
-    val codeError = NonNullObservableField("")
 
     var hasError: Boolean = false
 
@@ -76,94 +61,51 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
 
     val handler = TransitionHandler(this)
 
-    init {
-        checkCode()
+    /**
+     * 判断字符串是否包含中文字符
+     */
+    private fun hasChinese(s: String): Boolean {
+        return s.any { it.code > 0x4E00 && it.code < 0x9FFF }
     }
 
-    fun checkCode() {
-        rawApiService.checkCode()
-                .bindToLifecycle(activity)
-                .subscribeOn(Schedulers.io())
-                .retryWhen(ApiConfig.RetryWithDelay())
-                .subscribe({
-                    body ->
-                    codeBytes.set(body.bytes())
-                }, {
-                    error ->
-                    error.printStackTrace()
-                    error.message?.toast()
-                })
-    }
-
-    fun checkAccount() {
-
-    }
-
-    fun checkNickname() {
-
-    }
-
-    fun checkEmail() {
-
-    }
-
-    fun onClickCode(view: View) {
-        checkCode()
+    /**
+     * 生成随机字母+数字组合（用于中文用户名的邮箱前缀）
+     */
+    private fun randomAlphaNum(len: Int = 8): String {
+        val chars = ('a'..'z') + ('0'..'9')
+        return (1..len).map { chars.random() }.joinToString("")
     }
 
     fun onClickCreate(view: View) {
         hasError = false
         accountError.set("")
-        nicknameError.set("")
-        emailError.set("")
         newError.set("")
-        renewError.set("")
-        codeError.set("")
 
+        // 验证帐号（2-20位）
         if (account.get().length < 2 || account.get().length > 20) {
             hasError = true
             accountError.set("帐号应在2-20位之间")
         }
 
-        if (nickname.get().length < 2 || nickname.get().length > 20) {
-            hasError = true
-            nicknameError.set("昵称应在2-20位之间")
-        }
-
-        if (!Patterns.EMAIL_ADDRESS.matcher(email.get()).matches()) {
-            hasError = true
-            emailError.set("这不是一个合法的邮箱")
-        }
-
-        if (newPassword.get() != renewPassword.get()) {
-            hasError = true
-            newError.set("两次输入的密码不一致")
-            renewError.set("两次输入的密码不一致")
-        }
-
+        // 验证密码（6-20位）
         if (newPassword.get().length < 6 || newPassword.get().length > 20) {
             hasError = true
             newError.set("密码应在6-20位之间")
         }
 
-        if (renewPassword.get().length < 6 || renewPassword.get().length > 20) {
-            hasError = true
-            renewError.set("密码应在6-20位之间")
-        }
-
-        if (code.get().isEmpty()) {
-            hasError = true
-            codeError.set("验证码不能为空")
-        }
-
         if (hasError) return
 
+        // 自动填充：与 web 注册页逻辑一致
+        val nickname = account.get()
+        val pwdconfirm = newPassword.get()
+        val email = if (hasChinese(account.get())) {
+            randomAlphaNum() + "@tucao.fun"
+        } else {
+            account.get() + "@tucao.fun"
+        }
+
         accountEnabled.set(false)
-        nicknameEnabled.set(false)
-        emailEnabled.set(false)
         newPasswordEnabled.set(false)
-        renewPasswordEnabled.set(false)
-        codeEnabled.set(false)
         activity.startRegister()
 
         Observables.combineLatest(finishRequest.stream, finishDelay.stream) {
@@ -190,7 +132,7 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
                 .flatMap {
                     (c, _) ->
                     if (c == 0) {
-                        rawApiService.checkNickname(nickname.get())
+                        rawApiService.checkNickname(nickname)
                                 .retryWhen(ApiConfig.RetryWithDelay())
                     } else {
                         throw Error("帐号已存在")
@@ -203,7 +145,7 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
                 .flatMap {
                     (c, _) ->
                     if (c == 0) {
-                        rawApiService.checkEmail(email.get())
+                        rawApiService.checkEmail(email)
                                 .retryWhen(ApiConfig.RetryWithDelay())
                     } else {
                         throw Error("昵称已存在")
@@ -216,7 +158,7 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
                 .flatMap {
                     (c, _) ->
                     if (c == 0) {
-                        rawApiService.register(account.get(), nickname.get(), email.get(), newPassword.get(), renewPassword.get(), code.get())
+                        rawApiService.register(account.get(), nickname, email, newPassword.get(), pwdconfirm)
                                 .retryWhen(ApiConfig.RetryWithDelay())
                     } else {
                         throw Error("邮箱已存在")
@@ -236,8 +178,8 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
                 }
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
-                    user.username = email.get()
-                    user.name = nickname.get()
+                    user.username = email
+                    user.name = nickname
                     user.avatar = ""
                     user.level = 1
                     user.signature = ""
@@ -263,11 +205,7 @@ class RegisterViewModel(val activity: RegisterActivity): BaseViewModel() {
 
     private fun registerFailed(msg: String) {
         accountEnabled.set(true)
-        nicknameEnabled.set(true)
-        emailEnabled.set(true)
         newPasswordEnabled.set(true)
-        renewPasswordEnabled.set(true)
-        codeEnabled.set(true)
         activity.registerFailed(msg)
     }
 

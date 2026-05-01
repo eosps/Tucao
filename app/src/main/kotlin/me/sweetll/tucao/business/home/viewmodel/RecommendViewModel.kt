@@ -51,10 +51,11 @@ class RecommendViewModel(val fragment: RecommendFragment): BaseViewModel() {
     fun parseRecommends(doc: Document): List<Pair<Channel, List<Video>>> {
         val recommends = mutableListOf<Pair<Channel, List<Video>>>()
 
-        // 解析"今天推荐"（list8 区域）
+        // 解析"今天推荐"（list8 区域），展示 4 个卡片
         val list8 = doc.getElementsByClass("list list8").first()
         if (list8 != null) {
-            val channel = Channel(0, "今天推荐")
+            // id=-1 标记为"今天推荐"，适配器据此显示排行榜和"更多"按钮
+            val channel = Channel(-1, "今天推荐")
             val videos = parseListVideo(list8)
             if (videos.isNotEmpty()) {
                 recommends.add(0, channel to videos.subList(0, minOf(4, videos.size)))

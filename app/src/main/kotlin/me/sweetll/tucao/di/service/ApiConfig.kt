@@ -52,6 +52,7 @@ object ApiConfig {
     const val INDEX_URL        = "/"
     const val LIST_URL         = "list/{tid}/"
     const val RANK_URL         = "html/hot.html"
+    const val POS_URL          = "html/pos.html"
     const val BGM_URL          = "bgm/"
     const val WEEK_BGM_URL     = "html/week_bgm.html"
     const val SEND_DANMU_URL   = "index.php?m=mukio&c=index&a=post"

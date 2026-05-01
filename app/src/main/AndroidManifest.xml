@@ -83,6 +83,9 @@
             android:name=".business.rank.RankActivity"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".business.home.RecommendListActivity"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".business.browser.BrowserActivity"
             android:screenOrientation="portrait" />
         <activity

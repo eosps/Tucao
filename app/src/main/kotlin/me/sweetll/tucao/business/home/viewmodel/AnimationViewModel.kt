@@ -62,11 +62,11 @@ class AnimationViewModel(val fragment: AnimationFragment): BaseViewModel() {
 
     /**
      * 从列表页面解析前 N 个视频
+     * 排除 list8（热门推荐区块，可能为空），取实际内容列表
      */
     private fun parseTopVideos(doc: Document, count: Int): List<Video> {
-        val listElements = doc.getElementsByClass("list")
-        if (listElements.isEmpty()) return emptyList()
-        val videos = parseListVideo(listElements.first())
+        val listElement = doc.select("div.list:not(.list8)").first() ?: return emptyList()
+        val videos = parseListVideo(listElement)
         return videos.take(count)
     }
 

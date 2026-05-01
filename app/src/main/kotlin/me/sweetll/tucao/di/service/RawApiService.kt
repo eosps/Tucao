@@ -24,6 +24,10 @@ interface RawApiService {
     @Headers("Cookie: tucao_verify=ok")
     fun rankHtml(@Query("p") tid: Int): Observable<ResponseBody>
 
+    @GET(ApiConfig.POS_URL)
+    @Headers("Cookie: tucao_verify=ok")
+    fun pos(@Query("page") page: Int): Observable<ResponseBody>
+
     @GET(ApiConfig.BGM_URL)
     @Headers("Cookie: tucao_verify=ok")
     fun bgm(@Query("list") list: Int = 18,
@@ -135,7 +139,6 @@ interface RawApiService {
                  @Field("email") email: String,
                  @Field("password") password: String,
                  @Field("pwdconfirm") pwdconfirm: String,
-                 @Field("code") code: String,
                  @Field("dosubmit") dosubmit: String = "注册"): Observable<ResponseBody>
 
     @GET(ApiConfig.CHECK_USERNAME_URL)

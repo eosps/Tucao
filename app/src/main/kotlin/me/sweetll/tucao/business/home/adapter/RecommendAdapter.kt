@@ -16,65 +16,47 @@ class RecommendAdapter(data: MutableList<Pair<Channel, List<Video>>>?): BaseQuic
         val channel = item.first
         helper.setText(R.id.text_channel, channel.name)
 
-        item.second.take(4).forEachIndexed {
-            index, result ->
-            val thumbImg: ImageView
-            val playText: TextView
-            val titleText: TextView
-            when (index) {
-                0 -> {
-                    thumbImg = helper.getView(R.id.img_thumb1)
-                    playText = helper.getView(R.id.text_play1)
-                    titleText = helper.getView(R.id.text_title1)
-                    helper.setTag(R.id.card1, result.hid)
-                    helper.addOnClickListener(R.id.card1)
-                }
-                1 -> {
-                    thumbImg = helper.getView(R.id.img_thumb2)
-                    playText = helper.getView(R.id.text_play2)
-                    titleText = helper.getView(R.id.text_title2)
-                    helper.setTag(R.id.card2, result.hid)
-                    helper.addOnClickListener(R.id.card2)
-                }
-                2 -> {
-                    thumbImg = helper.getView(R.id.img_thumb3)
-                    playText = helper.getView(R.id.text_play3)
-                    titleText = helper.getView(R.id.text_title3)
-                    helper.setTag(R.id.card3, result.hid)
-                    helper.addOnClickListener(R.id.card3)
-                }
-                else -> {
-                    thumbImg = helper.getView(R.id.img_thumb4)
-                    playText = helper.getView(R.id.text_play4)
-                    titleText = helper.getView(R.id.text_title4)
-                    helper.setTag(R.id.card4, result.hid)
-                    helper.addOnClickListener(R.id.card4)
-                }
-            }
+        // 4 张卡片的 view id
+        val cardIds = intArrayOf(R.id.card1, R.id.card2, R.id.card3, R.id.card4)
+        val thumbIds = intArrayOf(R.id.img_thumb1, R.id.img_thumb2, R.id.img_thumb3, R.id.img_thumb4)
+        val playIds = intArrayOf(R.id.text_play1, R.id.text_play2, R.id.text_play3, R.id.text_play4)
+        val titleIds = intArrayOf(R.id.text_title1, R.id.text_title2, R.id.text_title3, R.id.text_title4)
+
+        val maxCards = minOf(4, cardIds.size)
+        val videoCount = minOf(item.second.size, maxCards)
+
+        // 填充有数据的卡片
+        item.second.take(maxCards).forEachIndexed { index, result ->
+            val thumbImg: ImageView = helper.getView(thumbIds[index])
+            val playText: TextView = helper.getView(playIds[index])
+            val titleText: TextView = helper.getView(titleIds[index])
+
+            helper.setTag(cardIds[index], result.hid)
+            helper.addOnClickListener(cardIds[index])
+
             titleText.tag = result.thumb
             thumbImg.load(mContext, result.thumb)
             playText.text = result.play.formatByWan()
             titleText.text = result.title
+            helper.getView<View>(cardIds[index]).visibility = View.VISIBLE
         }
 
-        for (index in item.second.size .. 3) {
-            when (index) {
-                0 -> {
-                    helper.getView<View>(R.id.card1).visibility = View.INVISIBLE
-                }
-                1 -> {
-                    helper.getView<View>(R.id.card2).visibility = View.INVISIBLE
-                }
-                2 -> {
-                    helper.getView<View>(R.id.card3).visibility = View.INVISIBLE
-                }
-                else -> {
-                    helper.getView<View>(R.id.card4).visibility = View.INVISIBLE
-                }
-            }
+        // 隐藏没有数据的卡片
+        for (index in videoCount until maxCards) {
+            helper.getView<View>(cardIds[index]).visibility = View.INVISIBLE
         }
 
-        if (channel.id != 0) {
+        if (channel.id == -1) {
+            // "今天推荐": 显示排行榜入口和"更多"按钮（点击打开浏览器）
+            helper.setGone(R.id.img_rank, true)
+            helper.addOnClickListener(R.id.img_rank)
+            helper.setText(R.id.text_more, "更多${channel.name}内容")
+            // tag 设为 URL 字符串，用于在 fragment 中区分并打开浏览器
+            helper.setTag(R.id.card_more, "https://www.tucao.my/html/pos.html")
+            helper.setGone(R.id.card_more, true)
+            helper.addOnClickListener(R.id.card_more)
+        } else if (channel.id != 0) {
+            // 其他频道: 显示更多按钮，隐藏排行榜
             helper.setText(R.id.text_more, "更多${channel.name}内容")
             helper.setTag(R.id.card_more, channel.id)
             helper.setGone(R.id.card_more, true)
