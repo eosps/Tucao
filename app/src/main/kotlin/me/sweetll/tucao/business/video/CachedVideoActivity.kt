@@ -95,6 +95,8 @@ class CachedVideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             override fun onPrepared(url: String?, vararg objects: Any?) {
                 super.onPrepared(url, *objects)
                 isPlay = true
+                // 视频准备完毕，隐藏加载提示文字
+                binding.player.loadText?.visibility = View.GONE
                 if (firstPlay) {
                     firstPlay = false
                     if (selectedPart.lastPlayPosition != 0) {
