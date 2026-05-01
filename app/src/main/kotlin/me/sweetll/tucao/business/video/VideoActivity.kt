@@ -310,6 +310,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             }
             if (durls!!.size == 1) {
                 val url = if (selectedPart.flag == DownloadStatus.COMPLETED) durls[0].getCacheAbsolutePath() else durls[0].url
+                android.util.Log.w("VideoDebug", "loadDurls 单段播放:\n  URL: $url\n  已缓存: ${selectedPart.flag == DownloadStatus.COMPLETED}\n  part.file: ${selectedPart.file}")
                 binding.player.setUp(url, true, "")
             } else {
                 // 多段视频：已缓存时将 durl.url 更新为本地文件路径

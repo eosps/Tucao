@@ -465,9 +465,12 @@ class DanmuVideoPlayer : StandardGSYVideoPlayer {
                 "Referer" to "https://$baseUrl/"
             )
         }
-        // 本地文件不走 GSY 缓存路径（CacheDataSource 用 DefaultHttpDataSource，无法处理 file://），
-        // 直接用 DefaultDataSource.Factory 播放本地文件
-        val useCache = if (fixedUrl.startsWith("file://")) false else cacheWithPlay
+        // 本地文件和 SharePoint 链接不走 GSY 缓存路径
+        // 本地文件：CacheDataSource 用 DefaultHttpDataSource，无法处理 file://
+        // SharePoint：CacheDataSource 对 SharePoint 的 HTTPS 响应处理有兼容问题，
+        // 会导致 ExoPlayer 收到无法解析的数据（UnrecognizedInputFormatException）
+        val useCache = if (fixedUrl.startsWith("file://") || fixedUrl.contains("sharepoint.com")) false else cacheWithPlay
+        android.util.Log.w("VideoDebug", "DanmuVideoPlayer.setUp:\n  URL: $fixedUrl\n  useCache: $useCache\n  headers: ${mapHeadData?.keys}")
         return super.setUp(fixedUrl, useCache, title)
     }
 

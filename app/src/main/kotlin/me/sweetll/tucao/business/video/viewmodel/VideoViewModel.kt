@@ -58,9 +58,41 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
             return url
         }
 
-        // SharePoint 链接：只修复旧版 _layouts/52/ 格式，不进行预解析
+        // SharePoint 链接：修复 URL 格式
         if (url.contains("sharepoint.com")) {
-            return url.replace("_layouts/52/", "_layouts/15/")
+            val fixedUrl = url.replace("_layouts/52/", "_layouts/15/")
+            // 有 share= token 的链接是公开分享链接，可以预解析获取直链
+            // 缺少 share= 的链接会被截断，由 recoverSharePointUrl() 处理，这里跳过
+            if (!fixedUrl.contains("share=")) {
+                android.util.Log.w("VideoDebug", "SharePoint URL 缺少 share= token，跳过预解析: $fixedUrl")
+                return fixedUrl
+            }
+            // 预解析：OkHttpClient 正确处理 SharePoint 的 HTTPS 响应，
+            // 避免 ExoPlayer 的 DefaultHttpDataSource 出现兼容问题
+            return try {
+                val request = Request.Builder()
+                    .url(fixedUrl)
+                    .header("User-Agent", ApiConfig.CHROME_USER_AGENT)
+                    .build()
+                val response = urlResolveClient.newCall(request).execute()
+                val resolvedUrl = response.request.url.toString()
+                val contentType = response.header("Content-Type", "")
+                val contentLength = response.header("Content-Length", "?")
+                response.body?.close()
+                response.close()
+                android.util.Log.w("VideoDebug", "SharePoint 预解析结果:\n  原始: $fixedUrl\n  解析: $resolvedUrl\n  Content-Type: $contentType\n  Content-Length: $contentLength")
+                // 如果解析到了登录页或非视频内容，回退到原始 URL
+                if (resolvedUrl.contains("login.") || resolvedUrl.contains("oauth2")
+                    || (contentType != null && contentType.isNotEmpty() && !contentType.contains("video/") && !contentType.contains("octet-stream"))) {
+                    android.util.Log.w("VideoDebug", "SharePoint 预解析检测到非视频内容，回退原始 URL")
+                    fixedUrl
+                } else {
+                    resolvedUrl
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VideoDebug", "SharePoint 预解析失败", e)
+                fixedUrl
+            }
         }
 
         // 其他 URL：解析 HTTP 重定向获取最终直链
@@ -268,8 +300,9 @@ class VideoViewModel(val activity: VideoActivity): BaseViewModel() {
                     }
 
                     // 从选中的条目中提取 file= 参数值（即视频URL）
+                    // 正则排除 | 分隔符，避免 URL 末尾带上多余的 |
                     val entry = entries[partOrder]
-                    val fileRegex = Regex("""file=(https?://.+)$""")
+                    val fileRegex = Regex("""file=(https?://[^|\s]+)""")
                     val fileMatch = fileRegex.find(entry)
                     if (fileMatch != null) {
                         fileMatch.groupValues[1].replace("_layouts/52/", "_layouts/15/")
