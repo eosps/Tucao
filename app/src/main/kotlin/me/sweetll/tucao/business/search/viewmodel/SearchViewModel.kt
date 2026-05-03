@@ -13,7 +13,7 @@ import me.sweetll.tucao.extension.*
 class SearchViewModel(val activity: SearchActivity, keyword: String? = null, var tid: Int? = null, var order: String? = "date"): BaseViewModel()  {
     val searchText = NonNullObservableField("")
     val channelFilterText = NonNullObservableField("全部分类")
-    val orderFilterText = NonNullObservableField("发布时间")
+    val orderFilterText = NonNullObservableField("更新时间")
     val totalCountVisibility = ObservableInt(View.INVISIBLE) // total_count没有用. Fuck!
     val searchResultVisibility = ObservableInt(View.GONE)
     val searchHistoryVisibility = ObservableInt(View.VISIBLE)
@@ -174,8 +174,8 @@ class SearchViewModel(val activity: SearchActivity, keyword: String? = null, var
             else -> "全部分类"
         })
         orderFilterText.set(when(order) {
-            "date" -> "发布时间"
-            "mukio" -> "弹幕数"
+            "date" -> "更新时间"
+            "views" -> "播放数"
             else -> "播放数"
         })
     }

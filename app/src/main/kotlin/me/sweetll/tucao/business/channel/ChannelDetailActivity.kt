@@ -53,9 +53,9 @@ class ChannelDetailActivity : BaseActivity() {
 
         val channelFilterAdapter = ChannelFilterAdapter(this,
                 mutableListOf(
-                        ChannelFilter(parentChannel.name, "最近发布", "date"),
-                        ChannelFilter(parentChannel.name, "人气最旺", "views"),
-                        ChannelFilter(parentChannel.name, "弹幕最多", "mukio")
+                        ChannelFilter(parentChannel.name, "最近更新", "date"),
+                        ChannelFilter(parentChannel.name, "最近发布", "id"),
+                        ChannelFilter(parentChannel.name, "人气最旺", "views")
                 )
         )
         binding.spinner.adapter = channelFilterAdapter
