@@ -17,7 +17,8 @@ class RankVideoAdapter(data: MutableList<Video>?): BaseQuickAdapter<Video, BaseV
         helper.setText(R.id.text_title, video.title)
         helper.setText(R.id.text_user, "up：${video.user}")
         helper.setText(R.id.text_play, "播放：${video.play.formatByWan()}")
-        helper.setText(R.id.text_mukio, "弹幕：${video.mukio.formatByWan()}")
+        // 排行榜不显示弹幕数
+        helper.getView<View>(R.id.text_mukio).visibility = View.GONE
 
         val rank = data.indexOf(video) + 1
         val rankText = helper.getView<TextView>(R.id.text_rank)

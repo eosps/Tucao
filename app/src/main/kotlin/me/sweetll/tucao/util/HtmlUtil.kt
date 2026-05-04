@@ -69,8 +69,10 @@ fun parseListVideo(list: Element): List<Video> {
             }
 
             val title = bElement.getElementsByClass("t").first()?.text() ?: ""
-            val playStr = bElement.getElementsByClass("i").first()?.text()?.replace(",", "") ?: "0"
-            val play = playStr.split(" ")?.firstOrNull()?.toIntOrNull() ?: 0
+            // 播放量从 div.i > span 中直接提取，避免 .text() 将 span 和 a 的文本粘连
+            val iElement = bElement.getElementsByClass("i").first()
+            val playStr = iElement?.getElementsByTag("span")?.first()?.text()?.replace(",", "") ?: "0"
+            val play = playStr.toIntOrNull() ?: 0
 
             Video(hid = hid, title = title, play = play, thumb = thumb)
         } catch (e: Exception) {
