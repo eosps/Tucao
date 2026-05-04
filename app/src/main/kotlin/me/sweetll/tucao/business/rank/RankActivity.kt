@@ -9,18 +9,15 @@ import android.view.View
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
 import me.sweetll.tucao.business.rank.adapter.RankPagerAdapter
-import me.sweetll.tucao.business.rank.viewmodel.RankViewModel
 import me.sweetll.tucao.databinding.ActivityRankBinding
 import me.sweetll.tucao.model.json.Channel
 
 class RankActivity : BaseActivity() {
 
     lateinit var binding: ActivityRankBinding
-    val viewModel = RankViewModel(this)
 
-    // 排行榜可用的频道列表（只有这些 tid 在 /html/hot.html?p=X 页面有数据）
+    // 排行榜可用的频道列表（与网页 hot.html 一致，无"全站"分类）
     private val rankChannels = listOf(
-            Channel(0, "全站"),
             Channel(11, "连载新番"),
             Channel(10, "完结番组"),
             Channel(26, "剧场版"),
@@ -42,7 +39,6 @@ class RankActivity : BaseActivity() {
 
     override fun initView(savedInstanceState: Bundle?) {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_rank)
-        binding.viewModel = viewModel
 
         binding.viewPager.adapter = RankPagerAdapter(supportFragmentManager, rankChannels)
         binding.viewPager.offscreenPageLimit = rankChannels.size

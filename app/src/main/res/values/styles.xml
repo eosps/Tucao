@@ -93,4 +93,11 @@
         <item name="circleSpacing">4dp</item>
     </style>
 
+    <!-- 排行榜时间段 Tab 文字样式（取消默认全大写） -->
+    <style name="RankTabText" parent="TextAppearance.Design.Tab">
+        <item name="textAllCaps">false</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
 </resources>

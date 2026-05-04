@@ -117,6 +117,8 @@ class VideoInfoFragment: BaseFragment() {
             }
             it
         }.toMutableList()
+        // 排行榜等页面解析的视频可能没有 parts 数据
+        if (parts.isEmpty()) return
         parts[0].checked = true
         parts[0].hadPlay = true
         selectedPart = parts[0]

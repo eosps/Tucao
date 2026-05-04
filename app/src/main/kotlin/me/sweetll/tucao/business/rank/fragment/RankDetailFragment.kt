@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemClickListener
+import com.google.android.material.tabs.TabLayout
 import com.trello.rxlifecycle2.kotlin.bindToLifecycle
 import dagger.android.support.AndroidSupportInjection
 import me.sweetll.tucao.R
@@ -32,6 +33,9 @@ class RankDetailFragment : BaseFragment() {
 
     @Inject
     lateinit var rawApiService: RawApiService
+
+    // 按时间段存储排行榜数据，key 为 "今天"/"本周"/"本月"/"今年"
+    private val periodData = LinkedHashMap<String, List<Video>>()
 
     companion object {
         private val ARG_TID = "tid"
@@ -62,10 +66,11 @@ class RankDetailFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // 视频列表点击跳转播放页，传 hid 让 VideoActivity 从 API 获取完整数据
         binding.rankVideoRecycler.addOnItemTouchListener(object : OnItemClickListener() {
             override fun onSimpleItemClick(helper: BaseQuickAdapter<*, *>, view: View, position: Int) {
                 val video: Video = helper.getItem(position) as Video
-                VideoActivity.intentTo(activity!!, video)
+                VideoActivity.intentTo(activity!!, video.hid)
             }
         })
         binding.rankVideoRecycler.layoutManager = LinearLayoutManager(activity)
@@ -75,6 +80,16 @@ class RankDetailFragment : BaseFragment() {
             loadData()
         }
 
+        // 时间段 Tab 切换：直接切换 adapter 数据，无需重新请求
+        binding.timeTab.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                val period = tab.text?.toString() ?: return
+                rankVideoAdapter.setNewData(periodData[period] ?: emptyList())
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab) {}
+            override fun onTabReselected(tab: TabLayout.Tab) {}
+        })
+
         loadData()
     }
 
@@ -82,7 +97,7 @@ class RankDetailFragment : BaseFragment() {
         if (!binding.swipeRefresh.isRefreshing) {
             binding.swipeRefresh.isRefreshing = true
         }
-        // 从 HTML 排行榜页面解析视频列表
+        // 一次请求获取全部 4 个时间段的排行榜数据
         rawApiService.rankHtml(tid)
                 .bindToLifecycle(this)
                 .sanitizeHtml {
@@ -90,20 +105,43 @@ class RankDetailFragment : BaseFragment() {
                 }
                 .doAfterTerminate { binding.swipeRefresh.isRefreshing = false }
                 .subscribe({ data ->
-                    rankVideoAdapter.setNewData(data)
+                    periodData.clear()
+                    periodData.putAll(data)
+                    // 更新时间段 Tab
+                    setupTimeTabs()
+                    // 默认显示第一个时间段的数据
+                    if (periodData.isNotEmpty()) {
+                        val firstKey = periodData.keys.first()
+                        rankVideoAdapter.setNewData(periodData[firstKey] ?: emptyList())
+                    }
                 }, { error ->
                     error.message?.toast()
                 })
     }
 
     /**
-     * 从排行榜 HTML 页面解析视频列表
-     * 页面结构：div.list > div.item（与首页列表一致）
+     * 根据解析到的时间段数据创建 Tab
+     * 只在数据变化时重建，避免重复添加
      */
-    fun parseRankVideos(doc: Document): List<Video> {
-        val listElements = doc.getElementsByClass("list")
-        if (listElements.isEmpty()) return emptyList()
-        // 排行榜页面通常有一个 list 容器包含所有 item
-        return parseListVideo(listElements.last() ?: listElements.first())
+    private fun setupTimeTabs() {
+        binding.timeTab.removeAllTabs()
+        for (key in periodData.keys) {
+            binding.timeTab.addTab(binding.timeTab.newTab().setText(key))
+        }
+    }
+
+    /**
+     * 从排行榜 HTML 页面解析全部 4 个时间段的数据
+     * 页面结构：div.time_item > div.time_title + div.list > div.item
+     */
+    fun parseRankVideos(doc: Document): Map<String, List<Video>> {
+        val result = LinkedHashMap<String, List<Video>>()
+        val timeItems = doc.getElementsByClass("time_item")
+        for (timeItem in timeItems) {
+            val title = timeItem.getElementsByClass("time_title").first()?.text() ?: continue
+            val list = timeItem.getElementsByClass("list").first() ?: continue
+            result[title] = parseListVideo(list)
+        }
+        return result
     }
 }
